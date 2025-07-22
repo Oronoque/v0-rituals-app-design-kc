@@ -1,463 +1,343 @@
 "use client"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft } from "lucide-react"
-
-// Types
-import type { AppState, FlowState, Ritual } from "@/app/types"
-import type { Step } from "@/app/types"
-
-// Data
-import { createMockRituals } from "@/app/data/mock-rituals"
-
-// Utils
-import { generateRitualMetricsData } from "@/app/utils/metrics"
-
-// Screens
 import { AuthScreen } from "@/app/screens/auth-screen"
-import { HomeScreen } from "@/app/screens/home-screen"
 import { LibraryScreen } from "@/app/screens/library-screen"
-import { JournalScreen } from "@/app/screens/journal-screen"
-import { SocialScreen } from "@/app/screens/social-screen"
-import { DayFlowScreen } from "@/app/screens/dayflow-screen"
-import { ReviewScreen } from "@/app/screens/review-screen"
-import { ScheduleScreen } from "@/app/screens/schedule-screen"
-import { ProofLeaderboardScreen } from "@/app/screens/proof-leaderboard-screen"
-import { ReflectionScreen } from "@/app/screens/reflection-screen"
+import { Button } from "@/components/ui/button"
+import { Target, Plus, BookOpen, Users, Calendar, LogOut, RefreshCw } from "lucide-react"
+import { 
+  useAuth, 
+  useUserRituals, 
+  usePublicRituals,
+  useForkRitual 
+} from "@/hooks/use-api"
 
-// Components
-import { MetricsDashboard } from "@/app/components/metrics-dashboard"
-import { ChangelogScreen } from "@/app/components/changelog-screen"
+type AppScreen = "home" | "library" | "schedule" | "social" | "journal"
 
 export default function RitualsApp() {
-  const [appState, setAppState] = useState<AppState>({
-    flowState: "auth",
-    isAuthenticated: false,
-    rituals: createMockRituals(),
-    currentRitualIndex: 0,
-    currentStepIndex: 0,
-    showMetrics: false,
-    selectedMetrics: null,
-    showChangelog: false,
-    changelogRitualId: null,
-    showGlobalChangelog: false,
-    completedRituals: [],
-    currentStreak: 37, // Mock current streak
-    proofScore: 1.45, // Mock proof score
-    dayRating: 0,
-    dayReflection: "",
-  })
+  const [currentScreen, setCurrentScreen] = useState<AppScreen>("home")
+  const { user, isAuthenticated, loading: authLoading, logout } = useAuth()
+  
+  // Fetch user rituals with React Query
+  const { 
+    data: userRitualsData, 
+    isLoading: userRitualsLoading, 
+    refetch: refetchUserRituals 
+  } = useUserRituals({ limit: 10 })
+  
+  // Fetch public rituals with React Query
+  const { 
+    data: publicRitualsData, 
+    isLoading: publicRitualsLoading 
+  } = usePublicRituals({ limit: 5, sort_by: 'fork_count', sort_order: 'desc' })
+  
+  // Fork ritual mutation
+  const forkRitualMutation = useForkRitual()
 
-  // Track if we're in library selection mode for scheduling
-  const [isLibraryForScheduling, setIsLibraryForScheduling] = useState(false)
+  const userRituals = userRitualsData?.rituals || []
+  const publicRituals = publicRitualsData?.rituals || []
 
-  // Navigation handlers
-  const handleAuthenticate = () => {
-    setAppState((prev) => ({
-      ...prev,
-      isAuthenticated: true,
-      flowState: "home",
-    }))
+  const handleForkRitual = (ritualId: string) => {
+    forkRitualMutation.mutate(ritualId)
   }
 
-  const handleNavigate = (flow: FlowState) => {
-    setAppState((prev) => ({ ...prev, flowState: flow }))
-    // Reset library scheduling mode when navigating away
-    if (flow !== "library") {
-      setIsLibraryForScheduling(false)
-    }
+  const handleNavigate = (screen: string) => {
+    setCurrentScreen(screen as AppScreen)
   }
 
-  const handleStartRitual = (ritualIndex: number) => {
-    setAppState((prev) => ({
-      ...prev,
-      currentRitualIndex: ritualIndex,
-      currentStepIndex: 0,
-      flowState: "dayflow",
-    }))
+  const handleCreateRitual = () => {
+    setCurrentScreen("library")
   }
 
-  const handleUpdateRitual = (ritualIndex: number, updatedRitual: Ritual) => {
-    setAppState((prev) => {
-      const updatedRituals = prev.rituals.map((ritual, index) => (index === ritualIndex ? updatedRitual : ritual))
-
-      const ritual = updatedRitual
-      if (ritual.completed) {
-        const newCompletedRituals = [...prev.completedRituals]
-        if (!newCompletedRituals.includes(ritual.id)) {
-          newCompletedRituals.push(ritual.id)
-        }
-
-        // Check if there are more rituals to complete
-        const nextRitualIndex = updatedRituals.findIndex((r, index) => index > ritualIndex && !r.completed)
-
-        if (nextRitualIndex !== -1) {
-          // Start the next ritual automatically
-          return {
-            ...prev,
-            rituals: updatedRituals,
-            completedRituals: newCompletedRituals,
-            currentRitualIndex: nextRitualIndex,
-            currentStepIndex: 0,
-            // Stay in dayflow to continue with next ritual
-          }
-        }
-
-        // No more rituals - check if this is the last ritual of the day
-        const allRitualsCompleted = updatedRituals.every((r) => newCompletedRituals.includes(r.id))
-
-        if (allRitualsCompleted) {
-          // Check if any rituals were modified during execution
-          const anyModified = updatedRituals.some((r) => r.wasModified || r.steps.some((s) => s.wasModified))
-
-          // If no modifications, skip review and go straight to schedule
-          const nextFlow = anyModified ? "review" : "schedule"
-
-          return {
-            ...prev,
-            rituals: updatedRituals,
-            completedRituals: newCompletedRituals,
-            flowState: nextFlow,
-          }
-        }
-
-        return {
-          ...prev,
-          rituals: updatedRituals,
-          completedRituals: newCompletedRituals,
-        }
-      }
-
-      return {
-        ...prev,
-        rituals: updatedRituals,
-      }
-    })
-  }
-
-  const handleUpdateStep = (ritualIndex: number, stepIndex: number, updatedStep: Step) => {
-    setAppState((prev) => {
-      const currentStep = prev.rituals[ritualIndex]?.steps[stepIndex]
-      const wasModified =
-        currentStep &&
-        (currentStep.answer !== updatedStep.answer ||
-          JSON.stringify(currentStep.weightliftingConfig) !== JSON.stringify(updatedStep.weightliftingConfig) ||
-          JSON.stringify(currentStep.cardioConfig) !== JSON.stringify(updatedStep.cardioConfig))
-
-      return {
-        ...prev,
-        rituals: prev.rituals.map((ritual, index) =>
-          index === ritualIndex
-            ? {
-                ...ritual,
-                steps: ritual.steps.map((step, sIndex) =>
-                  sIndex === stepIndex ? { ...updatedStep, wasModified: wasModified || updatedStep.wasModified } : step,
-                ),
-                wasModified: ritual.wasModified || wasModified,
-              }
-            : ritual,
-        ),
-      }
-    })
-  }
-
-  const handleUpdateStepIndex = (newStepIndex: number) => {
-    setAppState((prev) => ({
-      ...prev,
-      currentStepIndex: newStepIndex,
-    }))
-  }
-
-  const handleReorderRituals = (reorderedRituals: Ritual[]) => {
-    setAppState((prev) => ({
-      ...prev,
-      rituals: reorderedRituals,
-    }))
-  }
-
-  const handleRemoveRitual = (ritualIndex: number) => {
-    setAppState((prev) => {
-      const newRituals = prev.rituals.filter((_, index) => index !== ritualIndex)
-      return {
-        ...prev,
-        rituals: newRituals,
-        // Adjust current ritual index if needed
-        currentRitualIndex:
-          prev.currentRitualIndex >= ritualIndex ? Math.max(0, prev.currentRitualIndex - 1) : prev.currentRitualIndex,
-        currentStepIndex: 0,
-      }
-    })
-  }
-
-  // Metrics handlers
-  const handleShowMetrics = (ritual: Ritual) => {
-    const metricsData = generateRitualMetricsData(ritual)
-    setAppState((prev) => ({
-      ...prev,
-      showMetrics: true,
-      selectedMetrics: {
-        title: ritual.name,
-        type: "ritual",
-        data: metricsData,
-      },
-    }))
-  }
-
-  const handleCloseMetrics = () => {
-    setAppState((prev) => ({
-      ...prev,
-      showMetrics: false,
-      selectedMetrics: null,
-    }))
-  }
-
-  // Changelog handlers
-  const handleShowChangelog = (ritualId?: string, global = false) => {
-    setAppState((prev) => ({
-      ...prev,
-      showChangelog: true,
-      changelogRitualId: ritualId || null,
-      showGlobalChangelog: global,
-    }))
-  }
-
-  const handleCloseChangelog = () => {
-    setAppState((prev) => ({
-      ...prev,
-      showChangelog: false,
-      changelogRitualId: null,
-      showGlobalChangelog: false,
-    }))
-  }
-
-  // Review and Schedule handlers
-  const handleContinueToSchedule = () => {
-    setAppState((prev) => ({ ...prev, flowState: "proof-leaderboard" }))
-  }
-
-  const handleContinueToReflection = () => {
-    setAppState((prev) => ({ ...prev, flowState: "reflection" }))
-  }
-
-  const handleScheduleRituals = (scheduledRituals: Ritual[]) => {
-    setAppState((prev) => ({
-      ...prev,
-      rituals: scheduledRituals,
-      completedRituals: [],
-      flowState: "proof-leaderboard",
-    }))
-    setIsLibraryForScheduling(false)
-  }
-
-  // Library handlers
-  const handleAddNewRitual = () => {
-    setIsLibraryForScheduling(true)
-    setAppState((prev) => ({ ...prev, flowState: "library" }))
-  }
-
-  const handleSelectRitualFromLibrary = (ritual: Ritual) => {
-    // Add the selected ritual to the current rituals list
-    setAppState((prev) => ({
-      ...prev,
-      rituals: [...prev.rituals, ritual],
-      flowState: "schedule",
-    }))
-    setIsLibraryForScheduling(false)
-  }
-
-  // Update review data
-  const handleUpdateReviewData = (rating: number, reflection: string) => {
-    setAppState((prev) => ({
-      ...prev,
-      dayRating: rating,
-      dayReflection: reflection,
-    }))
-  }
-
-  // Shutdown complete - advance to next day
-  const handleShutdownComplete = () => {
-    // Calculate new proof score
-    const completedToday = appState.completedRituals.length === appState.rituals.length
-    const newProofScore = completedToday ? appState.proofScore * 1.01 : appState.proofScore * 0.99
-    const newStreak = completedToday ? appState.currentStreak + 1 : 1
-
-    setAppState((prev) => ({
-      ...prev,
-      flowState: "home",
-      completedRituals: [],
-      dayRating: 0,
-      dayReflection: "",
-      proofScore: newProofScore,
-      currentStreak: newStreak,
-      // Reset rituals for next day
-      rituals: prev.rituals.map((ritual) => ({
-        ...ritual,
-        completed: false,
-        wasModified: false,
-        steps: ritual.steps.map((step) => ({
-          ...step,
-          completed: false,
-          answer: undefined,
-          wasModified: false,
-        })),
-      })),
-    }))
-  }
-
-  // Get completed rituals for review
-  const getCompletedRituals = () => {
-    return appState.rituals.filter((ritual) => appState.completedRituals.includes(ritual.id))
-  }
-
-  // Render changelog screen
-  if (appState.showChangelog) {
+  // Show loading screen
+  if (authLoading) {
     return (
-      <ChangelogScreen
-        onClose={handleCloseChangelog}
-        ritualId={appState.changelogRitualId}
-        showGlobal={appState.showGlobalChangelog}
-      />
-    )
-  }
-
-  // Render metrics dashboard
-  if (appState.showMetrics && appState.selectedMetrics) {
-    return (
-      <div className="min-h-screen bg-[#1C1C1E] text-white flex flex-col ios-safe-area">
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <Button variant="ghost" size="sm" onClick={handleCloseMetrics} className="text-blue-400 hover:text-blue-300">
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="text-center">
-            <div className="text-white font-medium text-ios-subhead">{appState.selectedMetrics.title}</div>
+      <div className="min-h-screen bg-gradient-to-br from-[#0D0D0E] via-[#1C1C1E] to-[#2C2C2E] flex items-center justify-center p-4">
+        <div className="w-full max-w-sm mx-auto">
+          <div className="bg-[#1C1C1E] rounded-3xl shadow-2xl border border-[#3C3C3E]/30 p-8">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-6" />
+              <p className="text-[#8E8E93]">Loading your rituals...</p>
+            </div>
           </div>
-          <div className="w-12" />
-        </div>
-
-        <div className="flex-1">
-          <MetricsDashboard
-            title={appState.selectedMetrics.title}
-            type={appState.selectedMetrics.type}
-            data={appState.selectedMetrics.data}
-            onClose={handleCloseMetrics}
-          />
         </div>
       </div>
     )
   }
 
-  // Render main screens
-  switch (appState.flowState) {
-    case "auth":
-      return <AuthScreen onAuthenticate={handleAuthenticate} />
-
-    case "home":
-      return (
-        <HomeScreen
-          rituals={appState.rituals}
-          onNavigate={handleNavigate}
-          onStartRitual={handleStartRitual}
-          onShowMetrics={handleShowMetrics}
-          onShowChangelog={handleShowChangelog}
-          onReorderRituals={handleReorderRituals}
-          onRemoveRitual={handleRemoveRitual}
-          onUpdateRitual={handleUpdateRitual}
-        />
-      )
-
-    case "library":
-      return (
-        <LibraryScreen
-          onNavigate={handleNavigate}
-          onSelectRitual={isLibraryForScheduling ? handleSelectRitualFromLibrary : undefined}
-          showBackButton={isLibraryForScheduling}
-          backDestination="schedule"
-        />
-      )
-
-    case "journal":
-      return <JournalScreen onNavigate={handleNavigate} />
-
-    case "social":
-      return <SocialScreen onNavigate={handleNavigate} />
-
-    case "dayflow":
-      return (
-        <DayFlowScreen
-          onNavigate={handleNavigate}
-          rituals={appState.rituals}
-          currentRitualIndex={appState.currentRitualIndex}
-          currentStepIndex={appState.currentStepIndex}
-          onUpdateRitual={handleUpdateRitual}
-          onUpdateStep={handleUpdateStep}
-          onUpdateStepIndex={handleUpdateStepIndex}
-          onReorderRituals={handleReorderRituals}
-          onRemoveRitual={handleRemoveRitual}
-        />
-      )
-
-    case "review":
-      return (
-        <ReviewScreen
-          onNavigate={handleNavigate}
-          completedRituals={getCompletedRituals()}
-          onUpdateRitual={(ritualIndex, updatedRitual) => {
-            const completedRituals = getCompletedRituals()
-            const originalRitualIndex = appState.rituals.findIndex((r) => r.id === completedRituals[ritualIndex].id)
-            if (originalRitualIndex !== -1) {
-              handleUpdateRitual(originalRitualIndex, updatedRitual)
-            }
-          }}
-          onContinueToSchedule={handleContinueToSchedule}
-          onUpdateReviewData={handleUpdateReviewData}
-        />
-      )
-
-    case "schedule":
-      return (
-        <ScheduleScreen
-          onNavigate={handleNavigate}
-          rituals={appState.rituals}
-          onScheduleRituals={handleScheduleRituals}
-          onAddNewRitual={handleAddNewRitual}
-          onReorderRituals={handleReorderRituals}
-          onRemoveRitual={handleRemoveRitual}
-        />
-      )
-
-    case "proof-leaderboard":
-      return (
-        <ProofLeaderboardScreen
-          onNavigate={handleNavigate}
-          currentUserStreak={appState.currentStreak}
-          currentUserScore={appState.proofScore}
-          onContinue={handleContinueToReflection}
-        />
-      )
-
-    case "reflection":
-      return (
-        <ReflectionScreen
-          onNavigate={handleNavigate}
-          completedRituals={getCompletedRituals()}
-          dayRating={appState.dayRating}
-          dayReflection={appState.dayReflection}
-          onShutdownComplete={handleShutdownComplete}
-        />
-      )
-
-    default:
-      return (
-        <HomeScreen
-          rituals={appState.rituals}
-          onNavigate={handleNavigate}
-          onStartRitual={handleStartRitual}
-          onShowMetrics={handleShowMetrics}
-          onShowChangelog={handleShowChangelog}
-          onReorderRituals={handleReorderRituals}
-          onRemoveRitual={handleRemoveRitual}
-          onUpdateRitual={handleUpdateRitual}
-        />
-      )
+  // Show auth screen if not authenticated
+  if (!isAuthenticated) {
+    return <AuthScreen />
   }
+
+  // Handle different screens
+  if (currentScreen === "library") {
+    return (
+      <LibraryScreen 
+        onNavigate={handleNavigate} 
+        onCreateRitual={handleCreateRitual}
+      />
+    )
+  }
+
+  // Show main dashboard when authenticated
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#0D0D0E] via-[#1C1C1E] to-[#2C2C2E] flex items-center justify-center p-4">
+      {/* Phone Container */}
+      <div className="w-full max-w-sm mx-auto">
+        {/* Phone Frame Effect */}
+        <div className="bg-[#1C1C1E] rounded-3xl shadow-2xl border border-[#3C3C3E]/30 overflow-hidden h-[800px] flex flex-col">
+          {/* Status Bar Simulation */}
+          <div className="h-1 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0"></div>
+          
+          {/* Header */}
+          <div className="p-6 border-b border-[#3C3C3E]/30 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mr-4 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                  <Target className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                    Welcome back!
+                  </h1>
+                  <p className="text-[#8E8E93] text-sm">{user?.email}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => refetchUserRituals()}
+                  className="text-[#8E8E93] hover:text-white p-2 rounded-xl"
+                  disabled={userRitualsLoading}
+                >
+                  <RefreshCw className={`w-4 h-4 ${userRitualsLoading ? 'animate-spin' : ''}`} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => logout()}
+                  className="text-[#8E8E93] hover:text-white p-2 rounded-xl"
+                >
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content - Scrollable */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6 space-y-6">
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[#2C2C2E] rounded-2xl p-4 backdrop-blur-sm border border-[#3C3C3E]/30">
+                  <p className="text-[#8E8E93] text-xs mb-1">Current Streak</p>
+                  <p className="text-xl font-bold text-blue-400">{user?.current_streak || 0}</p>
+                </div>
+                <div className="bg-[#2C2C2E] rounded-2xl p-4 backdrop-blur-sm border border-[#3C3C3E]/30">
+                  <p className="text-[#8E8E93] text-xs mb-1">Proof Score</p>
+                  <p className="text-xl font-bold text-green-400">{user?.proof_score || '1.0000'}</p>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div>
+                <h2 className="text-lg font-semibold mb-3">Quick Actions</h2>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    onClick={handleCreateRitual}
+                    className="h-14 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl font-semibold shadow-lg shadow-blue-500/25 transition-all duration-200 transform active:scale-95"
+                  >
+                    <Plus className="w-5 h-5 mr-2" />
+                    Create
+                  </Button>
+                  <Button 
+                    onClick={() => setCurrentScreen("library")}
+                    className="h-14 bg-[#2C2C2E] hover:bg-[#3C3C3E] text-white rounded-2xl font-medium border border-[#3C3C3E]/50 transition-all duration-200"
+                  >
+                    <BookOpen className="w-5 h-5 mr-2" />
+                    Browse
+                  </Button>
+                </div>
+              </div>
+
+              {/* My Rituals */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-semibold">
+                    My Rituals ({userRitualsData?.total || 0})
+                  </h2>
+                  {userRitualsLoading && (
+                    <div className="w-4 h-4 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+                  )}
+                </div>
+                
+                {userRitualsLoading ? (
+                  <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="bg-[#2C2C2E] rounded-2xl p-4 animate-pulse">
+                        <div className="h-5 bg-[#3C3C3E] rounded mb-2 w-3/4"></div>
+                        <div className="h-4 bg-[#3C3C3E] rounded w-1/2"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : userRituals.length > 0 ? (
+                  <div className="space-y-3">
+                    {userRituals.slice(0, 3).map((ritual) => (
+                      <div key={ritual.id} className="bg-[#2C2C2E] rounded-2xl p-4 border border-[#3C3C3E]/30 backdrop-blur-sm">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-medium text-white mb-1">{ritual.name}</h3>
+                            <p className="text-[#8E8E93] text-sm">{ritual.steps.length} steps</p>
+                            {ritual.description && (
+                              <p className="text-[#8E8E93] text-xs mt-1 leading-relaxed">{ritual.description}</p>
+                            )}
+                          </div>
+                          <div className="text-right ml-3">
+                            <div className="flex items-center gap-2">
+                              {ritual.is_public && (
+                                <div className="w-2 h-2 bg-green-400 rounded-full" title="Public" />
+                              )}
+                              {ritual.category && (
+                                <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full">
+                                  {ritual.category}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {userRituals.length > 3 && (
+                      <Button 
+                        onClick={() => setCurrentScreen("library")}
+                        variant="ghost" 
+                        className="w-full text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-2xl"
+                      >
+                        View all {userRituals.length} rituals
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-[#2C2C2E] rounded-2xl p-6 text-center border border-[#3C3C3E]/30 backdrop-blur-sm">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl mx-auto mb-4 flex items-center justify-center">
+                      <Target className="w-8 h-8 text-[#8E8E93]" />
+                    </div>
+                    <p className="text-[#8E8E93] mb-3">No rituals yet</p>
+                    <Button 
+                      onClick={handleCreateRitual}
+                      className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl px-6 py-2 font-medium"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Your First Ritual
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Popular Rituals */}
+              {publicRituals.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg font-semibold">Popular Rituals</h2>
+                    {publicRitualsLoading && (
+                      <div className="w-4 h-4 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+                    )}
+                  </div>
+                  
+                  {publicRitualsLoading ? (
+                    <div className="space-y-3">
+                      {[...Array(2)].map((_, i) => (
+                        <div key={i} className="bg-[#2C2C2E] rounded-2xl p-4 animate-pulse">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="h-5 bg-[#3C3C3E] rounded mb-2 w-3/4"></div>
+                              <div className="h-4 bg-[#3C3C3E] rounded w-1/2"></div>
+                            </div>
+                            <div className="w-16 h-8 bg-[#3C3C3E] rounded ml-4"></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {publicRituals.slice(0, 2).map((ritual) => (
+                        <div key={ritual.id} className="bg-[#2C2C2E] rounded-2xl p-4 border border-[#3C3C3E]/30 backdrop-blur-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-medium text-white mb-1">{ritual.name}</h3>
+                              <p className="text-[#8E8E93] text-sm">
+                                {ritual.fork_count} forks • {ritual.steps.length} steps
+                              </p>
+                              {ritual.description && (
+                                <p className="text-[#8E8E93] text-xs mt-1 leading-relaxed">{ritual.description}</p>
+                              )}
+                            </div>
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleForkRitual(ritual.id)}
+                              disabled={forkRitualMutation.isPending}
+                              className="ml-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl px-3 py-1 text-xs font-medium disabled:opacity-50"
+                            >
+                              {forkRitualMutation.isPending ? (
+                                <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                              ) : (
+                                "Fork"
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Extra padding at bottom for better scrolling */}
+              <div className="h-4"></div>
+            </div>
+          </div>
+
+          {/* Bottom Navigation - Always Visible */}
+          <div className="border-t border-[#3C3C3E]/30 bg-[#1C1C1E]/95 backdrop-blur-sm flex-shrink-0">
+            <div className="flex items-center justify-around py-3 px-6">
+              <Button 
+                onClick={() => setCurrentScreen("home")}
+                variant="ghost" 
+                className="flex flex-col items-center gap-1 text-blue-500 hover:text-blue-400 p-2"
+              >
+                <div className="w-6 h-6 rounded-md bg-blue-500 flex items-center justify-center">
+                  <span className="text-xs text-white">🏠</span>
+                </div>
+                <span className="text-xs font-medium">Home</span>
+              </Button>
+              <Button 
+                onClick={() => setCurrentScreen("schedule")}
+                variant="ghost" 
+                className="flex flex-col items-center gap-1 text-[#8E8E93] hover:text-white p-2"
+              >
+                <Calendar className="w-5 h-5" />
+                <span className="text-xs">Schedule</span>
+              </Button>
+              <Button 
+                onClick={() => setCurrentScreen("library")}
+                variant="ghost" 
+                className="flex flex-col items-center gap-1 text-[#8E8E93] hover:text-white p-2"
+              >
+                <BookOpen className="w-5 h-5" />
+                <span className="text-xs">Library</span>
+              </Button>
+              <Button 
+                onClick={() => setCurrentScreen("social")}
+                variant="ghost" 
+                className="flex flex-col items-center gap-1 text-[#8E8E93] hover:text-white p-2"
+              >
+                <Users className="w-5 h-5" />
+                <span className="text-xs">Social</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }

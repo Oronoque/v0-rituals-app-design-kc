@@ -1,384 +1,369 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, Search, Star, Clock, Users, Plus } from "lucide-react"
-import { BottomNavigation } from "@/app/components/ui/bottom-navigation"
-import type { FlowState, Ritual } from "@/app/types"
+import { Search, Filter, Plus, Star, Users, Clock, ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { v4 as uuidv4 } from "uuid"
-
-// Mock library rituals
-const libraryRituals: Ritual[] = [
-  {
-    id: "lib-1",
-    name: "5-Minute Morning Energizer",
-    description: "Quick morning routine to boost energy and focus",
-    category: "Wellness",
-    author: "wellness_guru",
-    rating: 4.8,
-    users: 2341,
-    tags: ["Quick", "Energy", "Beginner"],
-    scheduledTime: "06:00",
-    completed: false,
-    wasModified: false,
-    steps: [
-      {
-        id: "lib-1-step-1",
-        name: "Deep Breathing",
-        type: "yesno",
-        question: "Take 10 deep breaths, focusing on your breath",
-        completed: false,
-      },
-      {
-        id: "lib-1-step-2",
-        name: "Stretching",
-        type: "yesno",
-        question: "Stretch your arms, legs, and back for 1 minute",
-        completed: false,
-      },
-      {
-        id: "lib-1-step-3",
-        name: "Positive Affirmation",
-        type: "qa",
-        question: "Write down one positive affirmation for today",
-        completed: false,
-      },
-      {
-        id: "lib-1-step-4",
-        name: "Cold Water",
-        type: "yesno",
-        question: "Splash cold water on your face",
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: "lib-2",
-    name: "Power Lifter's Protocol",
-    description: "Strength training routine for intermediate lifters",
-    category: "Fitness",
-    author: "strength_coach",
-    rating: 4.9,
-    users: 1876,
-    tags: ["Strength", "Advanced", "Powerlifting"],
-    scheduledTime: "07:00",
-    completed: false,
-    wasModified: false,
-    steps: [
-      {
-        id: "lib-2-step-1",
-        name: "Warm-up",
-        type: "yesno",
-        question: "5 minutes of dynamic stretching and mobility work",
-        completed: false,
-      },
-      {
-        id: "lib-2-step-2",
-        name: "Squats",
-        type: "weightlifting",
-        question: "Barbell squats - focus on form",
-        completed: false,
-        weightliftingConfig: [
-          { reps: 5, weight: 135, completed: false },
-          { reps: 5, weight: 185, completed: false },
-          { reps: 5, weight: 225, completed: false },
-        ],
-      },
-      {
-        id: "lib-2-step-3",
-        name: "Cool Down",
-        type: "yesno",
-        question: "5 minutes of static stretching",
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: "lib-3",
-    name: "Mindful Evening Wind-Down",
-    description: "Relaxing evening routine for better sleep",
-    category: "Wellness",
-    author: "mindfulness_master",
-    rating: 4.7,
-    users: 3421,
-    tags: ["Relaxation", "Sleep", "Mindfulness"],
-    scheduledTime: "21:00",
-    completed: false,
-    wasModified: false,
-    steps: [
-      {
-        id: "lib-3-step-1",
-        name: "Digital Sunset",
-        type: "yesno",
-        question: "Turn off all screens and digital devices",
-        completed: false,
-      },
-      {
-        id: "lib-3-step-2",
-        name: "Gratitude Journal",
-        type: "qa",
-        question: "Write down three things you're grateful for today",
-        completed: false,
-      },
-      {
-        id: "lib-3-step-3",
-        name: "Breathing Exercise",
-        type: "yesno",
-        question: "Practice 4-7-8 breathing technique for 2 minutes",
-        completed: false,
-      },
-      {
-        id: "lib-3-step-4",
-        name: "Body Scan Meditation",
-        type: "yesno",
-        question: "Perform a 5-minute body scan meditation while lying in bed",
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: "lib-4",
-    name: "Student Study Ritual",
-    description: "Focused study routine with breaks for optimal learning",
-    category: "Productivity",
-    author: "study_pro",
-    rating: 4.6,
-    users: 987,
-    tags: ["Focus", "Study", "Productivity"],
-    scheduledTime: "",
-    completed: false,
-    wasModified: false,
-    steps: [
-      {
-        id: "lib-4-step-1",
-        name: "Environment Setup",
-        type: "yesno",
-        question: "Clear desk, gather materials, fill water bottle",
-        completed: false,
-      },
-      {
-        id: "lib-4-step-2",
-        name: "Goal Setting",
-        type: "qa",
-        question: "Write down 3 specific goals for this study session",
-        completed: false,
-      },
-      {
-        id: "lib-4-step-3",
-        name: "Pomodoro Study Block",
-        type: "yesno",
-        question: "25 minutes of focused study, no distractions",
-        completed: false,
-      },
-      {
-        id: "lib-4-step-4",
-        name: "Review & Reflect",
-        type: "qa",
-        question: "Summarize what you learned and note any questions",
-        completed: false,
-      },
-    ],
-  },
-]
+import { 
+  useUserRituals, 
+  usePublicRituals, 
+  useForkRitual,
+  useAuth 
+} from "@/hooks/use-api"
+import type { Ritual } from "@/lib/api"
+import { CreateRitualForm } from "@/app/components/create-ritual-form"
 
 interface LibraryScreenProps {
-  onNavigate: (flow: FlowState) => void
-  onSelectRitual?: (ritual: Ritual) => void
-  showBackButton?: boolean
-  backDestination?: FlowState
+  onNavigate?: (screen: string) => void
+  onCreateRitual?: () => void
 }
 
-export function LibraryScreen({
-  onNavigate,
-  onSelectRitual,
-  showBackButton = false,
-  backDestination = "home",
-}: LibraryScreenProps) {
+const categories = [
+  { id: "all", name: "All Categories" },
+  { id: "wellness", name: "Wellness" },
+  { id: "fitness", name: "Fitness" },
+  { id: "productivity", name: "Productivity" },
+  { id: "mindfulness", name: "Mindfulness" },
+  { id: "health", name: "Health" },
+]
+
+interface RitualCardProps {
+  ritual: Ritual
+  onFork?: (id: string) => void
+  onAdd?: (id: string) => void
+  isPublic?: boolean
+  isForking?: boolean
+}
+
+function RitualCard({ ritual, onFork, onAdd, isPublic = false, isForking = false }: RitualCardProps) {
+  return (
+    <div className="bg-[#2C2C2E] rounded-2xl p-4 space-y-3 border border-[#3C3C3E]/30 backdrop-blur-sm">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold text-white text-base truncate">{ritual.name}</h3>
+            {isPublic && (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                <span className="text-yellow-500 text-xs font-medium">4.{Math.floor(Math.random() * 10)}</span>
+              </div>
+            )}
+          </div>
+          {isPublic && (
+            <p className="text-[#8E8E93] text-xs">by user_{ritual.user_id.slice(-4)}</p>
+          )}
+        </div>
+        <Button 
+          size="sm" 
+          className="rounded-full w-8 h-8 p-0 bg-blue-500 hover:bg-blue-600 flex-shrink-0 ml-2 shadow-lg shadow-blue-500/25"
+          onClick={() => isPublic ? onFork?.(ritual.id) : onAdd?.(ritual.id)}
+          disabled={isForking}
+        >
+          {isForking ? (
+            <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <Plus className="w-4 h-4" />
+          )}
+        </Button>
+      </div>
+
+      {/* Description */}
+      {ritual.description && (
+        <p className="text-[#8E8E93] text-xs leading-relaxed line-clamp-2">{ritual.description}</p>
+      )}
+
+      {/* Stats */}
+      <div className="flex items-center gap-3 text-[#8E8E93] text-xs">
+        {isPublic && (
+          <div className="flex items-center gap-1">
+            <Users className="w-3 h-3" />
+            <span>{ritual.fork_count}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          <span>{ritual.steps.length} steps</span>
+        </div>
+      </div>
+
+      {/* Tags */}
+      <div className="flex flex-wrap gap-1.5">
+        {ritual.category && (
+          <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full text-xs font-medium">
+            {ritual.category}
+          </span>
+        )}
+        {ritual.location && (
+          <span className="bg-[#3C3C3E] text-[#8E8E93] px-2 py-0.5 rounded-full text-xs">
+            {ritual.location}
+          </span>
+        )}
+        {isPublic && (
+          <>
+            <span className="bg-[#3C3C3E] text-[#8E8E93] px-2 py-0.5 rounded-full text-xs">Quick</span>
+            <span className="bg-[#3C3C3E] text-[#8E8E93] px-2 py-0.5 rounded-full text-xs">Beginner</span>
+          </>
+        )}
+      </div>
+
+      {/* Time indicator for private rituals */}
+      {!isPublic && (
+        <div className="flex items-center gap-2 pt-2 border-t border-[#3C3C3E]/50">
+          <Clock className="w-3 h-3 text-[#8E8E93]" />
+          <span className="text-[#8E8E93] text-xs">06:00</span>
+          <span className="text-[#8E8E93] text-xs">•</span>
+          <span className="text-[#8E8E93] text-xs">{ritual.category || 'General'}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function LibraryScreen({ onNavigate, onCreateRitual }: LibraryScreenProps) {
+  const [activeTab, setActiveTab] = useState<"public" | "private">("public")
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState<string>("All Categories")
-  const [filteredRituals, setFilteredRituals] = useState<Ritual[]>(libraryRituals)
+  const [selectedCategory, setSelectedCategory] = useState("all")
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  
+  const { isAuthenticated } = useAuth()
+  const forkRitualMutation = useForkRitual()
 
-  // Filter rituals based on search query and selected category
-  useEffect(() => {
-    let filtered = libraryRituals
+  // Fetch data based on active tab
+  const { data: publicData, isLoading: publicLoading } = usePublicRituals({
+    search: searchQuery || undefined,
+    category: selectedCategory !== "all" ? selectedCategory : undefined,
+    limit: 20,
+    sort_by: 'fork_count',
+    sort_order: 'desc'
+  })
 
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(
-        (ritual) =>
-          ritual.name.toLowerCase().includes(query) ||
-          ritual.description.toLowerCase().includes(query) ||
-          ritual.tags.some((tag) => tag.toLowerCase().includes(query)),
-      )
-    }
+  const { data: privateData, isLoading: privateLoading } = useUserRituals({
+    category: selectedCategory !== "all" ? selectedCategory : undefined,
+    limit: 20
+  })
 
-    // Filter by category
-    if (selectedCategory !== "All Categories") {
-      filtered = filtered.filter((ritual) => ritual.category === selectedCategory)
-    }
+  const handleFork = (ritualId: string) => {
+    if (!isAuthenticated) return
+    forkRitualMutation.mutate(ritualId)
+  }
 
-    setFilteredRituals(filtered)
-  }, [searchQuery, selectedCategory])
+  const handleCreateClick = () => {
+    setShowCreateForm(true)
+    onCreateRitual?.()
+  }
 
-  const categories = ["All Categories", "Wellness", "Fitness", "Productivity"]
+  const currentData = activeTab === "public" ? publicData : privateData
+  const isLoading = activeTab === "public" ? publicLoading : privateLoading
+  const rituals = currentData?.rituals || []
 
-  const handleAddRitual = (ritual: Ritual) => {
-    if (onSelectRitual) {
-      // Create a deep copy of the ritual with a new ID to avoid conflicts
-      const newRitual: Ritual = {
-        ...ritual,
-        id: uuidv4(), // Generate a new unique ID
-        completed: false,
-        wasModified: false,
-        steps: ritual.steps.map((step) => ({
-          ...step,
-          id: uuidv4(), // Generate new IDs for steps too
-          completed: false,
-          answer: undefined,
-          wasModified: false,
-        })),
-      }
-
-      onSelectRitual(newRitual)
-
-      // Navigate back if in selection mode
-      if (showBackButton && backDestination) {
-        onNavigate(backDestination)
-      }
-    }
+  // Show create ritual form
+  if (showCreateForm) {
+    return <CreateRitualForm onBack={() => setShowCreateForm(false)} />
   }
 
   return (
-    <div className="min-h-screen bg-[#1C1C1E] text-white flex flex-col ios-safe-area">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4">
-        {showBackButton ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onNavigate(backDestination)}
-            className="text-blue-400 hover:text-blue-300"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-        ) : (
-          <div className="w-8" />
-        )}
-        <div className="text-center">
-          <div className="text-white font-medium text-ios-title-3">Library</div>
-        </div>
-        <div className="w-8" />
-      </div>
-
-      {/* Search */}
-      <div className="px-4 mb-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#AEAEB2] w-4 h-4" />
-          <Input
-            type="text"
-            placeholder="Search rituals..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-[#2C2C2E] border-[#3C3C3E] text-white placeholder-[#AEAEB2] focus:border-blue-500 focus:ring-blue-500/30"
-          />
-        </div>
-      </div>
-
-      {/* Categories */}
-      <div className="px-4 mb-4 overflow-x-auto hide-scrollbar">
-        <div className="flex space-x-2">
-          {categories.map((category) => (
-            <Button
-              key={category}
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedCategory(category)}
-              className={cn(
-                "rounded-full whitespace-nowrap",
-                selectedCategory === category
-                  ? "bg-blue-500 text-white hover:bg-blue-600"
-                  : "bg-[#2C2C2E] text-[#AEAEB2] hover:bg-[#3C3C3E] hover:text-white",
-              )}
-            >
-              {category}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      {/* Rituals List */}
-      <div className="flex-1 px-4 pb-20 overflow-y-auto ios-scroll-container">
-        {filteredRituals.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-[#2C2C2E] rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="w-8 h-8 text-[#AEAEB2]" />
+    <div className="min-h-screen bg-gradient-to-br from-[#0D0D0E] via-[#1C1C1E] to-[#2C2C2E] flex items-center justify-center p-4">
+      {/* Phone Container */}
+      <div className="w-full max-w-sm mx-auto">
+        {/* Phone Frame Effect */}
+        <div className="bg-[#1C1C1E] rounded-3xl shadow-2xl border border-[#3C3C3E]/30 overflow-hidden h-[800px] flex flex-col">
+          {/* Status Bar Simulation */}
+          <div className="h-1 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0"></div>
+          
+          {/* Header */}
+          <div className="p-6 pb-4 flex-shrink-0">
+            <div className="flex items-center justify-between mb-6">
+              <div className="text-center flex-1">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                  Ritual Library
+                </h1>
+                <p className="text-[#8E8E93] text-sm">Discover and create rituals</p>
               </div>
-              <h3 className="text-white font-medium text-ios-subhead mb-2">No Rituals Found</h3>
-              <p className="text-[#AEAEB2] text-ios-body mb-6">Try a different search term or category</p>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="text-[#8E8E93] hover:text-white p-2 rounded-xl"
+              >
+                <Filter className="w-5 h-5" />
+              </Button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex bg-[#2C2C2E] rounded-2xl p-1.5 mb-6 shadow-inner">
+              <Button
+                variant="ghost"
+                onClick={() => setActiveTab("public")}
+                className={cn(
+                  "flex-1 h-11 rounded-xl transition-all duration-200 font-medium text-sm",
+                  activeTab === "public"
+                    ? "bg-blue-500 text-white shadow-lg shadow-blue-500/25"
+                    : "text-[#8E8E93] hover:text-white hover:bg-[#3C3C3E]"
+                )}
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Public
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setActiveTab("private")}
+                className={cn(
+                  "flex-1 h-11 rounded-xl transition-all duration-200 font-medium text-sm",
+                  activeTab === "private"
+                    ? "bg-[#3C3C3E] text-white"
+                    : "text-[#8E8E93] hover:text-white hover:bg-[#3C3C3E]"
+                )}
+              >
+                <span className="w-4 h-4 mr-2">🔒</span>
+                Private
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={handleCreateClick}
+                className="flex-1 h-11 rounded-xl bg-yellow-600 text-white hover:bg-yellow-700 font-medium shadow-lg shadow-yellow-600/25"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create
+              </Button>
+            </div>
+
+            {/* Search */}
+            <div className="relative mb-6">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#8E8E93]" />
+              <Input
+                placeholder="Search rituals, tags, or authors..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-12 bg-[#2C2C2E] border-[#3C3C3E] text-white placeholder-[#8E8E93] rounded-2xl pl-12 pr-4 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+              />
+            </div>
+
+            {/* Categories */}
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              {categories.map((category) => (
+                <Button
+                  key={category.id}
+                  variant="ghost"
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={cn(
+                    "whitespace-nowrap px-4 py-2 rounded-xl text-sm font-medium transition-all",
+                    selectedCategory === category.id
+                      ? "bg-blue-500 text-white shadow-lg shadow-blue-500/25"
+                      : "bg-[#2C2C2E] text-[#8E8E93] hover:text-white hover:bg-[#3C3C3E]"
+                  )}
+                >
+                  {category.name}
+                </Button>
+              ))}
             </div>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredRituals.map((ritual) => (
-              <div
-                key={ritual.id}
-                className="ios-card p-4 transition-all duration-200 hover:border-blue-500/30 hover:bg-blue-500/5"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-1 mb-1">
-                      <h3 className="text-white font-medium text-ios-subhead">{ritual.name}</h3>
-                      <div className="flex items-center text-yellow-400 ml-2">
-                        <Star className="w-3 h-3 fill-current" />
-                        <span className="text-ios-footnote ml-1">{ritual.rating}</span>
-                      </div>
+
+          {/* Content - Scrollable */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="px-6 pb-6">
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="bg-[#2C2C2E] rounded-2xl p-5 animate-pulse">
+                      <div className="h-6 bg-[#3C3C3E] rounded mb-3 w-3/4"></div>
+                      <div className="h-4 bg-[#3C3C3E] rounded mb-2 w-1/2"></div>
+                      <div className="h-4 bg-[#3C3C3E] rounded w-2/3"></div>
                     </div>
-                    <p className="text-[#AEAEB2] text-ios-footnote mb-2">{ritual.description}</p>
-                    <div className="flex items-center text-[#AEAEB2] text-ios-caption-1 mb-2">
-                      <span>by {ritual.author}</span>
-                      <span className="mx-2">•</span>
-                      <div className="flex items-center">
-                        <Users className="w-3 h-3 mr-1" />
-                        {ritual.users.toLocaleString()}
-                      </div>
-                      <span className="mx-2">•</span>
-                      <span>{ritual.steps.length} steps</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {ritual.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-ios-caption-1 px-2 py-0.5 rounded-full bg-[#3C3C3E] text-[#AEAEB2]"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex items-center text-[#AEAEB2] text-ios-caption-1">
-                      <Clock className="w-3 h-3 mr-1" />
-                      {ritual.scheduledTime || "Flexible"}
-                      <span className="mx-2">•</span>
-                      <span>{ritual.category}</span>
-                    </div>
+                  ))}
+                </div>
+              ) : rituals.length > 0 ? (
+                <div className="space-y-4">
+                  {rituals.map((ritual) => (
+                    <RitualCard
+                      key={ritual.id}
+                      ritual={ritual}
+                      onFork={handleFork}
+                      onAdd={() => {/* Handle add to schedule */}}
+                      isPublic={activeTab === "public"}
+                      isForking={forkRitualMutation.isPending}
+                    />
+                  ))}
+                </div>
+              ) : activeTab === "private" ? (
+                // Empty state for private rituals
+                <div className="text-center py-16">
+                  <div className="w-24 h-24 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-3xl mx-auto mb-6 flex items-center justify-center">
+                    <Plus className="w-12 h-12 text-[#8E8E93]" />
                   </div>
-                  <Button
-                    onClick={() => handleAddRitual(ritual)}
-                    className="ml-4 bg-blue-500 hover:bg-blue-600 text-white"
+                  <h3 className="text-xl font-semibold mb-2">Create New Ritual</h3>
+                  <p className="text-[#8E8E93] mb-6 leading-relaxed">
+                    Build a custom ritual from scratch
+                  </p>
+                  <Button 
+                    onClick={handleCreateClick}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-8 py-3 rounded-2xl font-semibold shadow-lg shadow-green-500/25"
                   >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add
+                    <Plus className="w-5 h-5 mr-2" />
+                    Start Creating
                   </Button>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ) : (
+                // No results state
+                <div className="text-center py-16">
+                  <div className="w-16 h-16 bg-[#2C2C2E] rounded-2xl mx-auto mb-4 flex items-center justify-center">
+                    <Search className="w-8 h-8 text-[#8E8E93]" />
+                  </div>
+                  <p className="text-[#8E8E93]">No rituals found</p>
+                  <p className="text-[#8E8E93] text-sm mt-1">Try adjusting your search or category</p>
+                </div>
+              )}
 
-      <BottomNavigation currentFlow="library" onNavigate={onNavigate} />
+              {/* Extra padding at bottom for better scrolling */}
+              <div className="h-4"></div>
+            </div>
+          </div>
+
+          {/* Bottom Navigation - Always Visible */}
+          <div className="border-t border-[#3C3C3E]/30 bg-[#1C1C1E]/95 backdrop-blur-sm flex-shrink-0">
+            <div className="flex items-center justify-around py-3 px-6">
+              <Button 
+                variant="ghost" 
+                className="flex flex-col items-center gap-1 text-[#8E8E93] hover:text-white p-2"
+                onClick={() => onNavigate?.("home")}
+              >
+                <div className="w-6 h-6 rounded-md bg-[#3C3C3E] flex items-center justify-center">
+                  <span className="text-xs">🏠</span>
+                </div>
+                <span className="text-xs">Home</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="flex flex-col items-center gap-1 text-blue-500 hover:text-blue-400 p-2"
+              >
+                <div className="w-6 h-6 rounded-md bg-blue-500 flex items-center justify-center">
+                  <span className="text-xs text-white">📚</span>
+                </div>
+                <span className="text-xs font-medium">Library</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="flex flex-col items-center gap-1 text-[#8E8E93] hover:text-white p-2"
+                onClick={() => onNavigate?.("journal")}
+              >
+                <div className="w-6 h-6 rounded-md bg-[#3C3C3E] flex items-center justify-center">
+                  <span className="text-xs">📝</span>
+                </div>
+                <span className="text-xs">Journal</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="flex flex-col items-center gap-1 text-[#8E8E93] hover:text-white p-2"
+                onClick={() => onNavigate?.("social")}
+              >
+                <div className="w-6 h-6 rounded-md bg-[#3C3C3E] flex items-center justify-center">
+                  <span className="text-xs">👥</span>
+                </div>
+                <span className="text-xs">Social</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

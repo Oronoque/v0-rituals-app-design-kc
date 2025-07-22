@@ -2,176 +2,237 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Mail, Phone, Target } from "lucide-react"
+import { Mail, Target, Eye, EyeOff } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/hooks/use-api"
 
 interface AuthScreenProps {
-  onAuthenticate: () => void
+  onAuthenticate?: () => void
 }
 
 export function AuthScreen({ onAuthenticate }: AuthScreenProps) {
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin")
-  const [authMethod, setAuthMethod] = useState<"email" | "phone">("email")
-  const [authInput, setAuthInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [localError, setLocalError] = useState("")
+  
+  const { login, register, isLoggingIn, isRegistering } = useAuth()
+  const isLoading = isLoggingIn || isRegistering
 
-  const handleAuth = async () => {
-    setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsLoading(false)
-    onAuthenticate()
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLocalError("")
+
+    if (!email || !password) {
+      setLocalError("Please fill in all fields")
+      return
+    }
+
+    if (password.length < 8) {
+      setLocalError("Password must be at least 8 characters")
+      return
+    }
+
+    try {
+      if (authMode === "signin") {
+        login({ email, password })
+      } else {
+        register({ email, password })
+      }
+      
+      // Note: Success handling and navigation is now handled by React Query hooks
+      // The hooks will automatically redirect and show success messages
+      
+    } catch (err: any) {
+      // This shouldn't happen as React Query handles errors,
+      // but kept for safety
+      setLocalError(err.message || "Authentication failed")
+    }
   }
 
   return (
-    <div className="min-h-screen bg-[#1C1C1E] text-white flex flex-col ios-safe-area">
-      <div className="flex-1 flex flex-col justify-center px-6">
-        <div className="text-center mb-12">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mx-auto mb-6 flex items-center justify-center">
-            <Target className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-ios-title-1 font-bold mb-2">Rituals</h1>
-          <p className="text-ios-body text-[#AEAEB2]">Build better habits, one ritual at a time</p>
-        </div>
-
-        <div className="space-y-4 mb-8">
-          <div className="flex bg-[#2C2C2E] rounded-xl p-1">
-            <Button
-              variant="ghost"
-              onClick={() => setAuthMode("signin")}
-              className={cn(
-                "flex-1 h-10 rounded-lg transition-colors",
-                authMode === "signin" ? "bg-blue-500 text-white" : "text-[#AEAEB2] hover:text-white",
-              )}
-            >
-              Sign In
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setAuthMode("signup")}
-              className={cn(
-                "flex-1 h-10 rounded-lg transition-colors",
-                authMode === "signup" ? "bg-blue-500 text-white" : "text-[#AEAEB2] hover:text-white",
-              )}
-            >
-              Sign Up
-            </Button>
-          </div>
-
-          <div className="flex bg-[#2C2C2E] rounded-xl p-1">
-            <Button
-              variant="ghost"
-              onClick={() => setAuthMethod("email")}
-              className={cn(
-                "flex-1 h-10 rounded-lg transition-colors",
-                authMethod === "email" ? "bg-[#3C3C3E] text-white" : "text-[#AEAEB2] hover:text-white",
-              )}
-            >
-              <Mail className="w-4 h-4 mr-2" />
-              Email
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setAuthMethod("phone")}
-              className={cn(
-                "flex-1 h-10 rounded-lg transition-colors",
-                authMethod === "phone" ? "bg-[#3C3C3E] text-white" : "text-[#AEAEB2] hover:text-white",
-              )}
-            >
-              <Phone className="w-4 h-4 mr-2" />
-              Phone
-            </Button>
-          </div>
-
-          <Input
-            type={authMethod === "email" ? "email" : "tel"}
-            placeholder={authMethod === "email" ? "Enter your email" : "Enter your phone number"}
-            value={authInput}
-            onChange={(e) => setAuthInput(e.target.value)}
-            className="h-12 bg-[#2C2C2E] border-[#3C3C3E] text-white placeholder-[#AEAEB2] rounded-xl"
-          />
-
-          <Button
-            onClick={handleAuth}
-            disabled={!authInput || isLoading}
-            className="w-full h-12 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium disabled:opacity-50"
-          >
-            {isLoading ? (
-              <div className="flex items-center">
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                {authMode === "signin" ? "Signing In..." : "Creating Account..."}
+    <div className="min-h-screen bg-gradient-to-br from-[#0D0D0E] via-[#1C1C1E] to-[#2C2C2E] flex items-center justify-center p-4">
+      {/* Phone Container */}
+      <div className="w-full max-w-sm mx-auto">
+        {/* Phone Frame Effect */}
+        <div className="bg-[#1C1C1E] rounded-3xl shadow-2xl border border-[#3C3C3E]/30 overflow-hidden">
+          {/* Status Bar Simulation */}
+          <div className="h-1 bg-gradient-to-r from-blue-500 to-purple-600"></div>
+          
+          {/* Main Content */}
+          <div className="px-8 py-12">
+            {/* App Branding */}
+            <div className="text-center mb-10">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <Target className="w-10 h-10 text-white" />
               </div>
-            ) : authMode === "signin" ? (
-              "Sign In"
-            ) : (
-              "Create Account"
+              <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                Rituals
+              </h1>
+              <p className="text-[#8E8E93] text-sm leading-relaxed">
+                Build better habits, one ritual at a time
+              </p>
+            </div>
+
+            <form onSubmit={handleAuth} className="space-y-5">
+              {/* Auth Mode Toggle */}
+              <div className="bg-[#2C2C2E] rounded-2xl p-1.5 shadow-inner">
+                <div className="flex">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setAuthMode("signin")
+                      setLocalError("")
+                    }}
+                    className={cn(
+                      "flex-1 h-11 rounded-xl transition-all duration-200 font-medium text-sm",
+                      authMode === "signin" 
+                        ? "bg-blue-500 text-white shadow-lg shadow-blue-500/25" 
+                        : "text-[#8E8E93] hover:text-white hover:bg-[#3C3C3E]",
+                    )}
+                  >
+                    Sign In
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setAuthMode("signup")
+                      setLocalError("")
+                    }}
+                    className={cn(
+                      "flex-1 h-11 rounded-xl transition-all duration-200 font-medium text-sm",
+                      authMode === "signup" 
+                        ? "bg-blue-500 text-white shadow-lg shadow-blue-500/25" 
+                        : "text-[#8E8E93] hover:text-white hover:bg-[#3C3C3E]",
+                    )}
+                  >
+                    Sign Up
+                  </Button>
+                </div>
+              </div>
+
+              {/* Email Input */}
+              <div className="space-y-3">
+                <div className="relative">
+                  <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
+                    <Mail className="w-5 h-5 text-[#8E8E93]" />
+                  </div>
+                  <Input
+                    type="email"
+                    placeholder="Email address"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      setLocalError("")
+                    }}
+                    className="h-14 bg-[#2C2C2E] border-[#3C3C3E] text-white placeholder-[#8E8E93] rounded-2xl pl-12 pr-4 text-base focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Password Input */}
+              <div className="space-y-3">
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      setLocalError("")
+                    }}
+                    className="h-14 bg-[#2C2C2E] border-[#3C3C3E] text-white placeholder-[#8E8E93] rounded-2xl pl-4 pr-14 text-base focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                    required
+                    minLength={8}
+                    disabled={isLoading}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-10 w-10 p-0 hover:bg-[#3C3C3E] rounded-xl"
+                    disabled={isLoading}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5 text-[#8E8E93]" />
+                    ) : (
+                      <Eye className="w-5 h-5 text-[#8E8E93]" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {localError && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 backdrop-blur-sm">
+                  <p className="text-red-400 text-sm text-center font-medium">{localError}</p>
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                disabled={!email || !password || isLoading}
+                className="w-full h-14 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25 transition-all duration-200 transform active:scale-95"
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3" />
+                    {authMode === "signin" ? "Signing In..." : "Creating Account..."}
+                  </div>
+                ) : authMode === "signin" ? (
+                  "Sign In"
+                ) : (
+                  "Create Account"
+                )}
+              </Button>
+            </form>
+
+            {/* Password Requirements for Sign Up */}
+            {authMode === "signup" && (
+              <div className="mt-6 p-5 bg-[#2C2C2E]/60 rounded-2xl border border-[#3C3C3E]/50 backdrop-blur-sm">
+                <p className="text-[#8E8E93] text-sm mb-3 font-medium">Password requirements:</p>
+                <ul className="text-xs text-[#8E8E93] space-y-1.5">
+                  <li className="flex items-center">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></div>
+                    At least 8 characters
+                  </li>
+                  <li className="flex items-center">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></div>
+                    One uppercase letter
+                  </li>
+                  <li className="flex items-center">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></div>
+                    One lowercase letter
+                  </li>
+                  <li className="flex items-center">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></div>
+                    One number
+                  </li>
+                </ul>
+              </div>
             )}
-          </Button>
-        </div>
 
-        <div className="space-y-3">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[#3C3C3E]" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-[#1C1C1E] text-[#AEAEB2]">Or continue with</span>
+
+            {/* Footer */}
+            <div className="text-center mt-8 pt-6 border-t border-[#3C3C3E]/30">
+              <p className="text-xs text-[#8E8E93] leading-relaxed">
+                By continuing, you agree to our{" "}
+                <span className="text-blue-400 underline cursor-pointer hover:text-blue-300 transition-colors">
+                  Terms of Service
+                </span>{" "}
+                and{" "}
+                <span className="text-blue-400 underline cursor-pointer hover:text-blue-300 transition-colors">
+                  Privacy Policy
+                </span>
+              </p>
             </div>
           </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <Button
-              variant="outline"
-              className="h-12 bg-[#2C2C2E] border-[#3C3C3E] hover:bg-[#3C3C3E] text-white rounded-xl"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path
-                  fill="currentColor"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 bg-[#2C2C2E] border-[#3C3C3E] hover:bg-[#3C3C3E] text-white rounded-xl"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path
-                  fill="currentColor"
-                  d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.81.87.78 0 2.26-1.07 3.04 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"
-                />
-              </svg>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 bg-[#2C2C2E] border-[#3C3C3E] hover:bg-[#3C3C3E] text-white rounded-xl"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path
-                  fill="currentColor"
-                  d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"
-                />
-              </svg>
-            </Button>
-          </div>
-        </div>
-
-        <div className="text-center mt-8">
-          <p className="text-ios-footnote text-[#AEAEB2]">
-            By continuing, you agree to our <span className="text-blue-400 underline">Terms of Service</span> and{" "}
-            <span className="text-blue-400 underline">Privacy Policy</span>
-          </p>
         </div>
       </div>
     </div>
