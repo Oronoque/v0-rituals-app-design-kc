@@ -10,6 +10,13 @@ import {
   forkRitual,
   publishRitual,
   unpublishRitual,
+  getRitualStats,
+  completeRitual,
+  updateRitualCompletion,
+  createQuickStepResponse,
+  updateQuickStepResponse,
+  batchCompleteRituals,
+  getDailySchedule,
 } from "../controllers/rituals";
 
 const router = Router();
@@ -26,5 +33,15 @@ router.delete("/:id", requireAuth, deleteRitual);
 router.post("/:id/fork", requireAuth, forkRitual);
 router.post("/:id/publish", requireAuth, publishRitual);
 router.post("/:id/unpublish", requireAuth, unpublishRitual);
+router.get("/:id/stats", requireAuth, getRitualStats);
+router.post("/:id/complete", requireAuth, completeRitual);
+router.put("/:id/complete", requireAuth, updateRitualCompletion);
+
+// Quick step operations
+router.post("/:id/quick-step", requireAuth, createQuickStepResponse);
+router.put("/:id/quick-update", requireAuth, updateQuickStepResponse);
+
+// Batch operations
+router.post("/batch-complete", requireAuth, batchCompleteRituals);
 
 export default router;

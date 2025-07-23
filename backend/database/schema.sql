@@ -1,96 +1,130 @@
--- Users table
+-- Minimal Rituals Database Schema
+-- Virtual instances approach - only store actual completions
+
+-- ===========================================
+-- ENUMS (keep core ones)
+-- ===========================================
+
+CREATE TYPE user_role AS ENUM ('admin', 'user');
+
+CREATE TYPE ritual_frequency_type AS ENUM ('once', 'daily', 'weekly', 'custom');
+CREATE TYPE ritual_category AS ENUM ('wellness', 'fitness', 'productivity', 'learning', 'spiritual', 'social', 'other');
+CREATE TYPE step_type AS ENUM ('boolean', 'counter', 'qna', 'timer', 'scale', 'exercise_set');
+
+-- Progression type
+
+-- ===========================================
+-- CORE TABLES
+-- ===========================================
+
+-- Users
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  first_name VARCHAR(100) DEFAULT '',
+  last_name VARCHAR(100) DEFAULT '',
+  role user_role DEFAULT 'user',
   current_streak INTEGER DEFAULT 0,
-  proof_score DECIMAL(10,4) DEFAULT 1.0000,
+  timezone VARCHAR(10) DEFAULT '+00:00', -- Store UTC offset (e.g., "+05:00", "-08:00")
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Rituals table (stores both private and public rituals with frequency settings)
+-- Ritual templates
 CREATE TABLE rituals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   description TEXT,
-  category VARCHAR(100),
+  category ritual_category DEFAULT 'other',
   location VARCHAR(255),
-  gear TEXT[], -- Array of gear items
+  gear TEXT[],
   is_public BOOLEAN DEFAULT false,
+  is_active BOOLEAN DEFAULT true,
   forked_from_id UUID REFERENCES rituals(id), -- For tracking forks
-  fork_count INTEGER DEFAULT 0, -- Denormalized count for performance
-  completion_count INTEGER DEFAULT 0, -- Denormalized count for performance
-  
-  -- Frequency settings (moved from ritual_templates)
-  frequency_type VARCHAR(50) DEFAULT 'once' CHECK (frequency_type IN ('once', 'daily', 'weekly', 'custom')),
-  frequency_interval INTEGER DEFAULT 1, -- Every X days (1=daily, 7=weekly, etc.)
-  frequency_data JSONB, -- For custom frequencies like specific days of week
-  is_active BOOLEAN DEFAULT true, -- Whether this ritual is actively scheduled
-  
+  fork_count INTEGER DEFAULT 0,
+  completion_count INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Steps table (individual steps within a ritual)
-CREATE TABLE steps (
+-- Frequency rules (how often ritual should occur)
+CREATE TABLE ritual_frequencies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ritual_id UUID NOT NULL REFERENCES rituals(id) ON DELETE CASCADE,
-  order_index INTEGER NOT NULL,
-  type VARCHAR(50) NOT NULL CHECK (type IN ('yesno', 'qa', 'weightlifting', 'cardio', 'custom')),
-  name VARCHAR(255) NOT NULL,
-  question TEXT,
-  weightlifting_config JSONB, -- JSON array for weightlifting configuration
-  cardio_config JSONB, -- JSON array for cardio configuration  
-  custom_config JSONB, -- JSON object for custom step configuration
+  frequency_type ritual_frequency_type DEFAULT 'once',
+  frequency_interval INTEGER DEFAULT 1,
+  days_of_week INTEGER[], -- 0-6 for custom weekly schedules
+  specific_dates DATE[], -- For specific date scheduling
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(ritual_id, order_index)
+  UNIQUE(ritual_id)
 );
 
--- Daily scheduled ritual instances
-CREATE TABLE daily_rituals (
+-- NEW: Ritual completions (only when actually completed)
+CREATE TABLE ritual_completions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   ritual_id UUID NOT NULL REFERENCES rituals(id) ON DELETE CASCADE,
-  scheduled_date DATE NOT NULL,
-  scheduled_time TIME,
-  completed BOOLEAN DEFAULT false,
-  was_modified BOOLEAN DEFAULT false, -- Track if modified during execution
-  completed_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, ritual_id, scheduled_date)
+  completed_date DATE NOT NULL,
+  completed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  duration_seconds INTEGER, -- How long it took
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Daily step completion tracking
-CREATE TABLE daily_steps (
+-- ===========================================
+-- STEP DEFINITIONS (templates within rituals)
+-- ===========================================
+
+CREATE TABLE step_definitions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  daily_ritual_id UUID NOT NULL REFERENCES daily_rituals(id) ON DELETE CASCADE,
-  step_id UUID NOT NULL REFERENCES steps(id) ON DELETE CASCADE,
-  completed BOOLEAN DEFAULT false,
-  skipped BOOLEAN DEFAULT false,
-  answer JSONB, -- Store step answers (text, weightlifting data, etc.)
-  was_modified BOOLEAN DEFAULT false, -- Track if modified during execution
-  completed_at TIMESTAMP WITH TIME ZONE,
+  ritual_id UUID NOT NULL REFERENCES rituals(id) ON DELETE CASCADE,
+  order_index INTEGER NOT NULL,
+  type step_type NOT NULL,
+  name TEXT NOT NULL,
+  config JSONB NOT NULL, -- holds step-specific config (including exercise data for exercise_set type)
+  is_required BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(daily_ritual_id, step_id)
+  UNIQUE(ritual_id, order_index)
 );
 
--- Indexes for performance
-CREATE INDEX idx_rituals_user_id ON rituals(user_id);
-CREATE INDEX idx_rituals_is_public ON rituals(is_public) WHERE is_public = true;
-CREATE INDEX idx_rituals_category ON rituals(category) WHERE is_public = true;
-CREATE INDEX idx_rituals_active ON rituals(user_id, is_active) WHERE is_active = true;
-CREATE INDEX idx_steps_ritual_id ON steps(ritual_id);
-CREATE INDEX idx_steps_order ON steps(ritual_id, order_index);
-CREATE INDEX idx_daily_rituals_user_date ON daily_rituals(user_id, scheduled_date);
-CREATE INDEX idx_daily_rituals_date ON daily_rituals(scheduled_date);
-CREATE INDEX idx_daily_steps_daily_ritual ON daily_steps(daily_ritual_id);
 
--- Triggers for updated_at timestamps
+CREATE TABLE step_responses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ritual_completion_id UUID NOT NULL REFERENCES ritual_completions(id) ON DELETE CASCADE,
+  step_definition_id UUID NOT NULL REFERENCES step_definitions(id) ON DELETE CASCADE,
+  value JSONB NOT NULL, -- holds step-specific response data
+  response_time_ms INTEGER,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(ritual_completion_id, step_definition_id)
+);
+
+-- ===========================================
+-- INDEXES
+-- ===========================================
+
+-- Core indexes
+CREATE INDEX idx_rituals_user_active ON rituals(user_id, is_active) WHERE is_active = true;
+CREATE INDEX idx_rituals_public ON rituals(is_public) WHERE is_public = true;
+
+CREATE INDEX idx_ritual_completions_user_date ON ritual_completions(user_id, completed_date);
+CREATE INDEX idx_ritual_completions_ritual ON ritual_completions(ritual_id);
+
+CREATE INDEX idx_step_definitions_ritual ON step_definitions(ritual_id, order_index);
+
+-- Response indexes
+CREATE INDEX idx_step_responses_completion ON step_responses(ritual_completion_id);
+CREATE INDEX idx_step_responses_step_def ON step_responses(step_definition_id);
+
+-- JSONB indexes for common queries (optional performance boost)
+CREATE INDEX idx_step_responses_value_gin ON step_responses USING GIN (value);
+CREATE INDEX idx_step_definitions_config_gin ON step_definitions USING GIN (config);
+
+-- ===========================================
+-- TRIGGERS
+-- ===========================================
+
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -101,6 +135,5 @@ $$ language 'plpgsql';
 
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_rituals_updated_at BEFORE UPDATE ON rituals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_steps_updated_at BEFORE UPDATE ON steps FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_daily_rituals_updated_at BEFORE UPDATE ON daily_rituals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_daily_steps_updated_at BEFORE UPDATE ON daily_steps FOR EACH ROW EXECUTE FUNCTION update_updated_at_column(); 
+
+

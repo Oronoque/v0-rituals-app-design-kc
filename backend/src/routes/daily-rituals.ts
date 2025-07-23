@@ -1,18 +1,13 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
-import {
-  createDailyRitual,
-  getDailyRitualsByDate,
-  updateDailyRitual,
-  deleteDailyRitual,
-} from "../controllers/daily-rituals";
+import { getDailySchedule } from "../controllers/rituals";
 
 const router = Router();
 
-// All daily ritual routes require authentication
-router.post("/", requireAuth, createDailyRitual);
-router.get("/:date", requireAuth, getDailyRitualsByDate);
-router.put("/:id", requireAuth, updateDailyRitual);
-router.delete("/:id", requireAuth, deleteDailyRitual);
+// All routes require authentication
+router.use(requireAuth);
+
+// Daily schedule routes
+router.get("/schedule", getDailySchedule);
 
 export default router;

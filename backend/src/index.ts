@@ -21,6 +21,15 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Extend Express Request type to include user
+declare global {
+  namespace Express {
+    interface Request {
+      userId?: string;
+    }
+  }
+}
+
 // Middleware
 app.use(helmet()); // Security headers
 app.use(compression()); // Gzip compression

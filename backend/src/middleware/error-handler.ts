@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ValidationError } from "../utils/validation";
+import { ApiResponse } from "@/types/api";
 
 export interface ApiError {
   error: string;
@@ -163,8 +164,12 @@ export function notFoundHandler(req: Request, res: Response): void {
 }
 
 // Async error wrapper for route handlers
-export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+export function asyncHandler<T>(
+  fn: (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => Promise<Response<ApiResponse<T>, Record<string, unknown>>>
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);

@@ -2,16 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import jwt, { SignOptions } from "jsonwebtoken";
 import { UnauthorizedError } from "./error-handler";
 
-// Extend Express Request type to include user
-declare global {
-  namespace Express {
-    interface Request {
-      userId?: string;
-    }
-  }
-}
-
 interface JwtPayload {
+  userId: string;
   sub: string;
   email: string;
   iat: number;
@@ -47,7 +39,6 @@ export function requireAuth(
     }
 
     const payload = jwt.verify(token, jwtSecret) as JwtPayload;
-
     // Add user ID to request
     req.userId = payload.sub;
 
@@ -116,6 +107,7 @@ export function generateToken(userId: string, email: string): string {
 
   return jwt.sign(
     {
+      userId,
       sub: userId,
       email: email,
     },
@@ -138,4 +130,31 @@ export function verifyToken(token: string): JwtPayload | null {
   } catch (error) {
     return null;
   }
+}
+
+/**
+ * Middleware to require admin role (must be used after requireAuth)
+ */
+export function requireAdmin(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  // This middleware assumes the user object is attached by the auth service
+  const user = (req as any).user;
+
+  if (!user) {
+    throw new UnauthorizedError("Authentication required");
+  }
+
+  if (user.role !== "admin") {
+    res.status(403).json({
+      success: false,
+      error: "Forbidden",
+      message: "Admin access required",
+    });
+    return;
+  }
+
+  next();
 }
