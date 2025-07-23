@@ -1,29 +1,36 @@
-import type React from "react"
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
+import type React from "react";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { Providers } from "@/components/providers";
 
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
-})
+});
 
 export const metadata: Metadata = {
   title: "Rituals - Daily Ritual Tracker",
   description: "Create, manage, and track daily rituals to improve your life",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
-    generator: 'v0.dev'
-}
+  viewport:
+    "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body className={`${inter.className} antialiased`}>{children}</body>
+      <body className={`${inter.className} antialiased bg-gradient-to-br from-[#0D0D0E] via-[#1C1C1E] to-[#2C2C2E] text-white min-h-screen`}>
+        <Providers>
+          <div className="w-full max-w-sm mx-auto min-h-screen bg-[#1C1C1E] relative flex flex-col">
+            {children}
+          </div>
+        </Providers>
+      </body>
     </html>
-  )
+  );
 }

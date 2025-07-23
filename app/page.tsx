@@ -1,463 +1,244 @@
-"use client"
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft } from "lucide-react"
-
-// Types
-import type { AppState, FlowState, Ritual } from "@/app/types"
-import type { Step } from "@/app/types"
-
-// Data
-import { createMockRituals } from "@/app/data/mock-rituals"
-
-// Utils
-import { generateRitualMetricsData } from "@/app/utils/metrics"
-
-// Screens
-import { AuthScreen } from "@/app/screens/auth-screen"
-import { HomeScreen } from "@/app/screens/home-screen"
-import { LibraryScreen } from "@/app/screens/library-screen"
-import { JournalScreen } from "@/app/screens/journal-screen"
-import { SocialScreen } from "@/app/screens/social-screen"
-import { DayFlowScreen } from "@/app/screens/dayflow-screen"
-import { ReviewScreen } from "@/app/screens/review-screen"
-import { ScheduleScreen } from "@/app/screens/schedule-screen"
-import { ProofLeaderboardScreen } from "@/app/screens/proof-leaderboard-screen"
-import { ReflectionScreen } from "@/app/screens/reflection-screen"
-
-// Components
-import { MetricsDashboard } from "@/app/components/metrics-dashboard"
-import { ChangelogScreen } from "@/app/components/changelog-screen"
+"use client";
+import { useState } from "react";
+import { AuthScreen } from "@/app/screens/auth-screen";
+import { HomeScreen } from "@/app/screens/home-screen";
+import { LibraryScreen } from "@/app/screens/library-screen";
+import { ChangelogScreen } from "@/app/components/changelog-screen";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-api";
+import { Home, BookOpen, Calendar, Users, PenTool } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { FlowState } from "@/app/types";
+import { CreateRitualFormV2 } from "@/app/components/create-ritual-form-v2";
 
 export default function RitualsApp() {
-  const [appState, setAppState] = useState<AppState>({
-    flowState: "auth",
-    isAuthenticated: false,
-    rituals: createMockRituals(),
-    currentRitualIndex: 0,
-    currentStepIndex: 0,
-    showMetrics: false,
-    selectedMetrics: null,
-    showChangelog: false,
-    changelogRitualId: null,
-    showGlobalChangelog: false,
-    completedRituals: [],
-    currentStreak: 37, // Mock current streak
-    proofScore: 1.45, // Mock proof score
-    dayRating: 0,
-    dayReflection: "",
-  })
+  const [currentFlow, setCurrentFlow] = useState<FlowState>("home");
+  const [showChangelog, setShowChangelog] = useState(false);
+  const [changelogRitualId, setChangelogRitualId] = useState<string | null>(null);
 
-  // Track if we're in library selection mode for scheduling
-  const [isLibraryForScheduling, setIsLibraryForScheduling] = useState(false)
+  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
+
+  const navItems = [
+    {
+      id: "home" as FlowState,
+      label: "Home",
+      icon: Home,
+      emoji: "🏠",
+    },
+    {
+      id: "library" as FlowState,
+      label: "Library",
+      icon: BookOpen,
+      emoji: "📚",
+    },
+    {
+      id: "schedule" as FlowState,
+      label: "Schedule",
+      icon: Calendar,
+      emoji: "📅",
+    },
+    {
+      id: "journal" as FlowState,
+      label: "Journal",
+      icon: PenTool,
+      emoji: "📝",
+    },
+    {
+      id: "social" as FlowState,
+      label: "Social",
+      icon: Users,
+      emoji: "👥",
+    },
+  ];
 
   // Navigation handlers
-  const handleAuthenticate = () => {
-    setAppState((prev) => ({
-      ...prev,
-      isAuthenticated: true,
-      flowState: "home",
-    }))
-  }
-
-  const handleNavigate = (flow: FlowState) => {
-    setAppState((prev) => ({ ...prev, flowState: flow }))
-    // Reset library scheduling mode when navigating away
-    if (flow !== "library") {
-      setIsLibraryForScheduling(false)
+  const handleNavigate = (screen: string) => {
+    // Convert special navigation cases
+    if (screen.startsWith("edit-")) {
+      // Handle edit ritual navigation
+      const ritualId = screen.replace("edit-", "");
+      console.log("Edit ritual:", ritualId);
+      // For now, go to library to find and edit the ritual
+      setCurrentFlow("library-private");
+      return;
     }
-  }
+    
+    if (screen.startsWith("completion-")) {
+      // Handle view completion details
+      const completionId = screen.replace("completion-", "");
+      console.log("View completion:", completionId);
+      // For now, just log - we'll implement this later
+      return;
+    }
 
-  const handleStartRitual = (ritualIndex: number) => {
-    setAppState((prev) => ({
-      ...prev,
-      currentRitualIndex: ritualIndex,
-      currentStepIndex: 0,
-      flowState: "dayflow",
-    }))
-  }
+    // Handle standard navigation
+    const validFlows: FlowState[] = [
+      "home", "auth", "library", "library-private", "library-public", 
+      "create", "dayflow", "schedule", "journal", "social", "settings"
+    ];
+    
+    if (validFlows.includes(screen as FlowState)) {
+      setCurrentFlow(screen as FlowState);
+    } else {
+      console.warn("Unknown navigation target:", screen);
+      setCurrentFlow("home");
+    }
+    
+    // Reset changelog when navigating
+    setShowChangelog(false);
+    setChangelogRitualId(null);
+  };
 
-  const handleUpdateRitual = (ritualIndex: number, updatedRitual: Ritual) => {
-    setAppState((prev) => {
-      const updatedRituals = prev.rituals.map((ritual, index) => (index === ritualIndex ? updatedRitual : ritual))
+  const handleShowChangelog = (ritualId: string) => {
+    setChangelogRitualId(ritualId);
+    setShowChangelog(true);
+  };
 
-      const ritual = updatedRitual
-      if (ritual.completed) {
-        const newCompletedRituals = [...prev.completedRituals]
-        if (!newCompletedRituals.includes(ritual.id)) {
-          newCompletedRituals.push(ritual.id)
-        }
+  const showBottomNav = isAuthenticated && !showChangelog;
 
-        // Check if there are more rituals to complete
-        const nextRitualIndex = updatedRituals.findIndex((r, index) => index > ritualIndex && !r.completed)
-
-        if (nextRitualIndex !== -1) {
-          // Start the next ritual automatically
-          return {
-            ...prev,
-            rituals: updatedRituals,
-            completedRituals: newCompletedRituals,
-            currentRitualIndex: nextRitualIndex,
-            currentStepIndex: 0,
-            // Stay in dayflow to continue with next ritual
-          }
-        }
-
-        // No more rituals - check if this is the last ritual of the day
-        const allRitualsCompleted = updatedRituals.every((r) => newCompletedRituals.includes(r.id))
-
-        if (allRitualsCompleted) {
-          // Check if any rituals were modified during execution
-          const anyModified = updatedRituals.some((r) => r.wasModified || r.steps.some((s) => s.wasModified))
-
-          // If no modifications, skip review and go straight to schedule
-          const nextFlow = anyModified ? "review" : "schedule"
-
-          return {
-            ...prev,
-            rituals: updatedRituals,
-            completedRituals: newCompletedRituals,
-            flowState: nextFlow,
-          }
-        }
-
-        return {
-          ...prev,
-          rituals: updatedRituals,
-          completedRituals: newCompletedRituals,
-        }
-      }
-
-      return {
-        ...prev,
-        rituals: updatedRituals,
-      }
-    })
-  }
-
-  const handleUpdateStep = (ritualIndex: number, stepIndex: number, updatedStep: Step) => {
-    setAppState((prev) => {
-      const currentStep = prev.rituals[ritualIndex]?.steps[stepIndex]
-      const wasModified =
-        currentStep &&
-        (currentStep.answer !== updatedStep.answer ||
-          JSON.stringify(currentStep.weightliftingConfig) !== JSON.stringify(updatedStep.weightliftingConfig) ||
-          JSON.stringify(currentStep.cardioConfig) !== JSON.stringify(updatedStep.cardioConfig))
-
-      return {
-        ...prev,
-        rituals: prev.rituals.map((ritual, index) =>
-          index === ritualIndex
-            ? {
-                ...ritual,
-                steps: ritual.steps.map((step, sIndex) =>
-                  sIndex === stepIndex ? { ...updatedStep, wasModified: wasModified || updatedStep.wasModified } : step,
-                ),
-                wasModified: ritual.wasModified || wasModified,
-              }
-            : ritual,
-        ),
-      }
-    })
-  }
-
-  const handleUpdateStepIndex = (newStepIndex: number) => {
-    setAppState((prev) => ({
-      ...prev,
-      currentStepIndex: newStepIndex,
-    }))
-  }
-
-  const handleReorderRituals = (reorderedRituals: Ritual[]) => {
-    setAppState((prev) => ({
-      ...prev,
-      rituals: reorderedRituals,
-    }))
-  }
-
-  const handleRemoveRitual = (ritualIndex: number) => {
-    setAppState((prev) => {
-      const newRituals = prev.rituals.filter((_, index) => index !== ritualIndex)
-      return {
-        ...prev,
-        rituals: newRituals,
-        // Adjust current ritual index if needed
-        currentRitualIndex:
-          prev.currentRitualIndex >= ritualIndex ? Math.max(0, prev.currentRitualIndex - 1) : prev.currentRitualIndex,
-        currentStepIndex: 0,
-      }
-    })
-  }
-
-  // Metrics handlers
-  const handleShowMetrics = (ritual: Ritual) => {
-    const metricsData = generateRitualMetricsData(ritual)
-    setAppState((prev) => ({
-      ...prev,
-      showMetrics: true,
-      selectedMetrics: {
-        title: ritual.name,
-        type: "ritual",
-        data: metricsData,
-      },
-    }))
-  }
-
-  const handleCloseMetrics = () => {
-    setAppState((prev) => ({
-      ...prev,
-      showMetrics: false,
-      selectedMetrics: null,
-    }))
-  }
-
-  // Changelog handlers
-  const handleShowChangelog = (ritualId?: string, global = false) => {
-    setAppState((prev) => ({
-      ...prev,
-      showChangelog: true,
-      changelogRitualId: ritualId || null,
-      showGlobalChangelog: global,
-    }))
-  }
-
-  const handleCloseChangelog = () => {
-    setAppState((prev) => ({
-      ...prev,
-      showChangelog: false,
-      changelogRitualId: null,
-      showGlobalChangelog: false,
-    }))
-  }
-
-  // Review and Schedule handlers
-  const handleContinueToSchedule = () => {
-    setAppState((prev) => ({ ...prev, flowState: "proof-leaderboard" }))
-  }
-
-  const handleContinueToReflection = () => {
-    setAppState((prev) => ({ ...prev, flowState: "reflection" }))
-  }
-
-  const handleScheduleRituals = (scheduledRituals: Ritual[]) => {
-    setAppState((prev) => ({
-      ...prev,
-      rituals: scheduledRituals,
-      completedRituals: [],
-      flowState: "proof-leaderboard",
-    }))
-    setIsLibraryForScheduling(false)
-  }
-
-  // Library handlers
-  const handleAddNewRitual = () => {
-    setIsLibraryForScheduling(true)
-    setAppState((prev) => ({ ...prev, flowState: "library" }))
-  }
-
-  const handleSelectRitualFromLibrary = (ritual: Ritual) => {
-    // Add the selected ritual to the current rituals list
-    setAppState((prev) => ({
-      ...prev,
-      rituals: [...prev.rituals, ritual],
-      flowState: "schedule",
-    }))
-    setIsLibraryForScheduling(false)
-  }
-
-  // Update review data
-  const handleUpdateReviewData = (rating: number, reflection: string) => {
-    setAppState((prev) => ({
-      ...prev,
-      dayRating: rating,
-      dayReflection: reflection,
-    }))
-  }
-
-  // Shutdown complete - advance to next day
-  const handleShutdownComplete = () => {
-    // Calculate new proof score
-    const completedToday = appState.completedRituals.length === appState.rituals.length
-    const newProofScore = completedToday ? appState.proofScore * 1.01 : appState.proofScore * 0.99
-    const newStreak = completedToday ? appState.currentStreak + 1 : 1
-
-    setAppState((prev) => ({
-      ...prev,
-      flowState: "home",
-      completedRituals: [],
-      dayRating: 0,
-      dayReflection: "",
-      proofScore: newProofScore,
-      currentStreak: newStreak,
-      // Reset rituals for next day
-      rituals: prev.rituals.map((ritual) => ({
-        ...ritual,
-        completed: false,
-        wasModified: false,
-        steps: ritual.steps.map((step) => ({
-          ...step,
-          completed: false,
-          answer: undefined,
-          wasModified: false,
-        })),
-      })),
-    }))
-  }
-
-  // Get completed rituals for review
-  const getCompletedRituals = () => {
-    return appState.rituals.filter((ritual) => appState.completedRituals.includes(ritual.id))
-  }
-
-  // Render changelog screen
-  if (appState.showChangelog) {
+  // Show loading screen
+  if (authLoading) {
     return (
-      <ChangelogScreen
-        onClose={handleCloseChangelog}
-        ritualId={appState.changelogRitualId}
-        showGlobal={appState.showGlobalChangelog}
-      />
-    )
-  }
-
-  // Render metrics dashboard
-  if (appState.showMetrics && appState.selectedMetrics) {
-    return (
-      <div className="min-h-screen bg-[#1C1C1E] text-white flex flex-col ios-safe-area">
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <Button variant="ghost" size="sm" onClick={handleCloseMetrics} className="text-blue-400 hover:text-blue-300">
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="text-center">
-            <div className="text-white font-medium text-ios-subhead">{appState.selectedMetrics.title}</div>
-          </div>
-          <div className="w-12" />
-        </div>
-
-        <div className="flex-1">
-          <MetricsDashboard
-            title={appState.selectedMetrics.title}
-            type={appState.selectedMetrics.type}
-            data={appState.selectedMetrics.data}
-            onClose={handleCloseMetrics}
-          />
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-6" />
+          <p className="text-[#8E8E93]">Loading your rituals...</p>
         </div>
       </div>
-    )
+    );
   }
 
-  // Render main screens
-  switch (appState.flowState) {
-    case "auth":
-      return <AuthScreen onAuthenticate={handleAuthenticate} />
-
-    case "home":
-      return (
-        <HomeScreen
-          rituals={appState.rituals}
-          onNavigate={handleNavigate}
-          onStartRitual={handleStartRitual}
-          onShowMetrics={handleShowMetrics}
-          onShowChangelog={handleShowChangelog}
-          onReorderRituals={handleReorderRituals}
-          onRemoveRitual={handleRemoveRitual}
-          onUpdateRitual={handleUpdateRitual}
-        />
-      )
-
-    case "library":
-      return (
-        <LibraryScreen
-          onNavigate={handleNavigate}
-          onSelectRitual={isLibraryForScheduling ? handleSelectRitualFromLibrary : undefined}
-          showBackButton={isLibraryForScheduling}
-          backDestination="schedule"
-        />
-      )
-
-    case "journal":
-      return <JournalScreen onNavigate={handleNavigate} />
-
-    case "social":
-      return <SocialScreen onNavigate={handleNavigate} />
-
-    case "dayflow":
-      return (
-        <DayFlowScreen
-          onNavigate={handleNavigate}
-          rituals={appState.rituals}
-          currentRitualIndex={appState.currentRitualIndex}
-          currentStepIndex={appState.currentStepIndex}
-          onUpdateRitual={handleUpdateRitual}
-          onUpdateStep={handleUpdateStep}
-          onUpdateStepIndex={handleUpdateStepIndex}
-          onReorderRituals={handleReorderRituals}
-          onRemoveRitual={handleRemoveRitual}
-        />
-      )
-
-    case "review":
-      return (
-        <ReviewScreen
-          onNavigate={handleNavigate}
-          completedRituals={getCompletedRituals()}
-          onUpdateRitual={(ritualIndex, updatedRitual) => {
-            const completedRituals = getCompletedRituals()
-            const originalRitualIndex = appState.rituals.findIndex((r) => r.id === completedRituals[ritualIndex].id)
-            if (originalRitualIndex !== -1) {
-              handleUpdateRitual(originalRitualIndex, updatedRitual)
-            }
-          }}
-          onContinueToSchedule={handleContinueToSchedule}
-          onUpdateReviewData={handleUpdateReviewData}
-        />
-      )
-
-    case "schedule":
-      return (
-        <ScheduleScreen
-          onNavigate={handleNavigate}
-          rituals={appState.rituals}
-          onScheduleRituals={handleScheduleRituals}
-          onAddNewRitual={handleAddNewRitual}
-          onReorderRituals={handleReorderRituals}
-          onRemoveRitual={handleRemoveRitual}
-        />
-      )
-
-    case "proof-leaderboard":
-      return (
-        <ProofLeaderboardScreen
-          onNavigate={handleNavigate}
-          currentUserStreak={appState.currentStreak}
-          currentUserScore={appState.proofScore}
-          onContinue={handleContinueToReflection}
-        />
-      )
-
-    case "reflection":
-      return (
-        <ReflectionScreen
-          onNavigate={handleNavigate}
-          completedRituals={getCompletedRituals()}
-          dayRating={appState.dayRating}
-          dayReflection={appState.dayReflection}
-          onShutdownComplete={handleShutdownComplete}
-        />
-      )
-
-    default:
-      return (
-        <HomeScreen
-          rituals={appState.rituals}
-          onNavigate={handleNavigate}
-          onStartRitual={handleStartRitual}
-          onShowMetrics={handleShowMetrics}
-          onShowChangelog={handleShowChangelog}
-          onReorderRituals={handleReorderRituals}
-          onRemoveRitual={handleRemoveRitual}
-          onUpdateRitual={handleUpdateRitual}
-        />
-      )
+  // Show auth screen if not authenticated
+  if (!isAuthenticated) {
+    return <AuthScreen />;
   }
+
+  // Show changelog overlay (full screen)
+  if (showChangelog && changelogRitualId) {
+    return (
+      <ChangelogScreen
+        ritualId={changelogRitualId}
+        onClose={() => setShowChangelog(false)}
+      />
+    );
+  }
+
+  // Main app content
+  return (
+    <>
+      {/* Status Bar Simulation */}
+      <div className="h-1 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0" />
+
+      {/* Main Content Area */}
+      <div className={cn(
+        "flex-1 flex flex-col overflow-hidden",
+        showBottomNav ? "pb-20" : ""
+      )}>
+        {(() => {
+          switch (currentFlow) {
+            case "auth":
+              return <AuthScreen />;
+
+            case "home":
+              return <HomeScreen onNavigate={handleNavigate} />;
+
+            case "library":
+            case "library-private":
+            case "library-public":
+              return (
+                <LibraryScreen
+                  onNavigate={handleNavigate}
+                  onCreateRitual={() => handleNavigate("create")}
+                />
+              );
+
+            case "create":
+              return (
+                <CreateRitualFormV2
+                  onCancel={() => handleNavigate("home")}
+                  onSuccess={() => handleNavigate("home")}
+                />
+              );
+
+            case "dayflow":
+              return <></>;
+
+            case "settings":
+              return (
+                <div className="flex-1 flex items-center justify-center p-4">
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold mb-4 text-white">Settings</h2>
+                    <p className="text-[#AEAEB2] mb-6">Settings screen coming soon...</p>
+                    <div className="space-y-3">
+                      <Button onClick={() => handleNavigate("home")} className="bg-blue-500 hover:bg-blue-600 w-full">
+                        Back to Home
+                      </Button>
+                      <Button onClick={() => logout()} variant="destructive" className="w-full">
+                        Sign Out
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+
+            case "schedule":
+            case "journal":
+            case "social":
+              return (
+                <div className="flex-1 flex items-center justify-center p-4">
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold mb-4 capitalize text-white">{currentFlow} Screen</h2>
+                    <p className="text-[#AEAEB2] mb-6">Coming soon...</p>
+                    <Button onClick={() => handleNavigate("home")} className="bg-blue-500 hover:bg-blue-600">
+                      Back to Home
+                    </Button>
+                  </div>
+                </div>
+              );
+
+            default:
+              return <HomeScreen onNavigate={handleNavigate} />;
+          }
+        })()}
+      </div>
+
+      {/* Bottom Navigation */}
+      {showBottomNav && (
+        <div className="absolute bottom-0 left-0 right-0 border-t border-[#3C3C3E]/30 bg-[#1C1C1E]/95 backdrop-blur-sm">
+          <div className="flex items-center justify-around py-3 px-6">
+            {navItems.map((item) => {
+              const isActive = currentFlow === item.id;
+
+              return (
+                <Button
+                  key={item.id}
+                  variant="ghost"
+                  className="flex flex-col items-center gap-1 p-2 min-w-0"
+                  onClick={() => handleNavigate(item.id)}
+                >
+                  <div className={cn(
+                    "w-6 h-6 rounded-md flex items-center justify-center transition-colors",
+                    isActive 
+                      ? "bg-blue-500 text-white" 
+                      : "bg-[#3C3C3E] text-[#8E8E93]"
+                  )}>
+                    <span className="text-xs">{item.emoji}</span>
+                  </div>
+                  <span className={cn(
+                    "text-xs transition-colors",
+                    isActive 
+                      ? "text-blue-500 font-medium" 
+                      : "text-[#8E8E93]"
+                  )}>
+                    {item.label}
+                  </span>
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
+

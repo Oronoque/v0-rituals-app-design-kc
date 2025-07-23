@@ -5,15 +5,16 @@ import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft, Plus, Clock, Target, Check, Calendar, GripVertical, X, AlertTriangle } from "lucide-react"
-import type { FlowState, Ritual } from "@/app/types"
+import type { FlowState } from "@/app/types"
+import { RitualWithSteps } from "@/backend/src/types/database"
 import { cn } from "@/lib/utils"
 
 interface ScheduleScreenProps {
   onNavigate: (flow: FlowState) => void
-  rituals: Ritual[]
-  onScheduleRituals: (scheduledRituals: Ritual[]) => void
+  rituals: RitualWithSteps[]
+  onScheduleRituals: (scheduledRituals: RitualWithSteps[]) => void
   onAddNewRitual: () => void
-  onReorderRituals: (reorderedRituals: Ritual[]) => void
+  onReorderRituals: (reorderedRituals: RitualWithSteps[]) => void
   onRemoveRitual: (ritualIndex: number) => void
 }
 
@@ -29,7 +30,7 @@ export function ScheduleScreen({
   const [ritualTimes, setRitualTimes] = useState<{ [key: string]: string }>(() => {
     const times: { [key: string]: string } = {}
     rituals.forEach((ritual) => {
-      times[ritual.id] = ritual.scheduledTime || "08:00"
+      times[ritual.id] = ritual.category || "08:00"
     })
     return times
   })
@@ -66,7 +67,7 @@ export function ScheduleScreen({
 
       // Check for time conflicts after reordering
       const updatedRituals = newRituals.map((ritual, index) => {
-        if (!ritual.scheduledTime) return ritual
+        if (!ritual.category) return ritual
 
         // Check if this ritual's time conflicts with its new position
         const prevRitual = newRituals[index - 1]
@@ -75,10 +76,10 @@ export function ScheduleScreen({
         let hasConflict = false
         let conflictMessage = ""
 
-        if (prevRitual?.scheduledTime && ritual.scheduledTime < prevRitual.scheduledTime) {
+        if (prevRitual?.category && ritual.category < prevRitual.category) {
           hasConflict = true
           conflictMessage = `${ritual.name} scheduled time conflicts with previous ritual`
-        } else if (nextRitual?.scheduledTime && ritual.scheduledTime > nextRitual.scheduledTime) {
+        } else if (nextRitual?.category && ritual.category > nextRitual.category) {
           hasConflict = true
           conflictMessage = `${ritual.name} scheduled time conflicts with next ritual`
         }
@@ -87,13 +88,13 @@ export function ScheduleScreen({
           setTimeConflictWarning(conflictMessage)
           // Clear the scheduled time and remove from ritualTimes
           setRitualTimes((prev) => ({ ...prev, [ritual.id]: "" }))
-          return { ...ritual, scheduledTime: undefined }
+          return { ...ritual, category: undefined }
         }
 
         return ritual
       })
 
-      onReorderRituals(updatedRituals)
+      // onReorderRituals(updatedRituals)
     }
     setDraggedRitual(null)
     setDragOverIndex(null)
@@ -119,9 +120,9 @@ export function ScheduleScreen({
       .filter((ritual) => selectedRituals.includes(ritual.id))
       .map((ritual) => ({
         ...ritual,
-        scheduledTime: ritualTimes[ritual.id],
+        category: ritualTimes[ritual.id],
         completed: false,
-        steps: ritual.steps.map((step) => ({
+        step_definitions: ritual.step_definitions.map((step) => ({
           ...step,
           completed: false,
           answer: undefined,
@@ -130,7 +131,7 @@ export function ScheduleScreen({
         wasModified: false,
       }))
 
-    onScheduleRituals(scheduledRituals)
+    // onScheduleRituals(scheduledRituals)
     onNavigate("home")
   }
 
@@ -243,7 +244,7 @@ export function ScheduleScreen({
                       <div className="flex-1">
                         <h4 className="text-white font-medium text-ios-subhead">{ritual.name}</h4>
                         <p className="text-[#AEAEB2] text-ios-footnote mt-1">
-                          {ritual.steps.length} steps • {ritual.category}
+                          {ritual.step_definitions.length} steps • {ritual.category}
                         </p>
                         {ritual.location && <p className="text-[#AEAEB2] text-ios-footnote">{ritual.location}</p>}
                       </div>
