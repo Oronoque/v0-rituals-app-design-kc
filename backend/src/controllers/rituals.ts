@@ -157,77 +157,6 @@ export const getDailySchedule = asyncHandler(
       const targetDate = new Date(date);
       const dayOfWeek = targetDate.getDay();
 
-      // Get scheduled rituals for the date
-      const ritualsWithFrequencies = await db
-        .selectFrom("rituals")
-        .leftJoin(
-          "ritual_frequencies",
-          "rituals.id",
-          "ritual_frequencies.ritual_id"
-        )
-        .selectAll("rituals")
-        .selectAll("ritual_frequencies")
-        .where("rituals.user_id", "=", req.userId)
-        .where("rituals.is_active", "=", true)
-        .execute();
-
-      const scheduledRituals: RitualWithConfig[] = [];
-
-      for (const row of ritualsWithFrequencies) {
-        if (!row.frequency_type) continue;
-
-        const shouldSchedule = shouldRitualBeScheduledForDate(
-          row.frequency_type as RitualFrequencyType,
-          row.frequency_interval || 1,
-          row.days_of_week || undefined,
-          row.specific_dates || undefined,
-          date,
-          dayOfWeek
-        );
-
-        if (shouldSchedule) {
-          const stepDefinitions = await db
-            .selectFrom("step_definitions")
-            .selectAll()
-            .where("ritual_id", "=", row.id)
-            .orderBy("order_index")
-            .execute();
-
-          const ritual: Ritual = {
-            id: row.id,
-            user_id: row.user_id,
-            name: row.name,
-            description: row.description,
-            category: row.category,
-            location: row.location,
-            gear: row.gear,
-            is_public: row.is_public,
-            is_active: row.is_active,
-            forked_from_id: row.forked_from_id,
-            fork_count: row.fork_count,
-            completion_count: row.completion_count,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-          };
-
-          const frequency: RitualFrequency = {
-            id: row.id,
-            ritual_id: row.id,
-            frequency_type: row.frequency_type as RitualFrequencyType,
-            frequency_interval: row.frequency_interval || 1,
-            days_of_week: row.days_of_week,
-            specific_dates: row.specific_dates,
-            created_at: row.created_at,
-          };
-
-          scheduledRituals.push({
-            ...ritual,
-            frequency,
-            step_definitions: stepDefinitions as AnyStepDefinition[],
-          });
-        }
-      }
-
       // Get completed rituals for the date
       const completions = await db
         .selectFrom("ritual_completions")
@@ -281,6 +210,78 @@ export const getDailySchedule = asyncHandler(
         });
       }
 
+      // Get scheduled rituals for the date
+      const ritualsWithFrequencies = await db
+        .selectFrom("rituals")
+        .leftJoin(
+          "ritual_frequencies",
+          "rituals.id",
+          "ritual_frequencies.ritual_id"
+        )
+        .selectAll("rituals")
+        .selectAll("ritual_frequencies")
+        .where("rituals.user_id", "=", req.userId)
+        .where("rituals.is_active", "=", true)
+        .execute();
+
+      const scheduledRituals: RitualWithConfig[] = [];
+
+      for (const row of ritualsWithFrequencies) {
+        if (!row.frequency_type) continue;
+        if (completedRituals.some((c) => c.ritual_id === row.ritual_id))
+          continue;
+
+        const shouldSchedule = shouldRitualBeScheduledForDate(
+          row.frequency_type as RitualFrequencyType,
+          row.frequency_interval || 1,
+          row.days_of_week || undefined,
+          row.specific_dates || undefined,
+          date,
+          dayOfWeek
+        );
+
+        if (shouldSchedule) {
+          const stepDefinitions = await db
+            .selectFrom("step_definitions")
+            .selectAll()
+            .where("ritual_id", "=", row.ritual_id!)
+            .orderBy("order_index")
+            .execute();
+
+          const ritual: Ritual = {
+            id: row.ritual_id!,
+            user_id: row.user_id,
+            name: row.name,
+            description: row.description,
+            category: row.category,
+            location: row.location,
+            gear: row.gear,
+            is_public: row.is_public,
+            is_active: row.is_active,
+            forked_from_id: row.forked_from_id,
+            fork_count: row.fork_count,
+            completion_count: row.completion_count,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+          };
+
+          const frequency: RitualFrequency = {
+            id: row.id,
+            ritual_id: row.id,
+            frequency_type: row.frequency_type as RitualFrequencyType,
+            frequency_interval: row.frequency_interval || 1,
+            days_of_week: row.days_of_week,
+            specific_dates: row.specific_dates,
+            created_at: row.created_at,
+          };
+
+          scheduledRituals.push({
+            ...ritual,
+            frequency,
+            step_definitions: stepDefinitions as AnyStepDefinition[],
+          });
+        }
+      }
       const schedule: UserDailySchedule = {
         user_id: req.userId,
         date,
