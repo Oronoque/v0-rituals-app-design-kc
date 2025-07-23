@@ -3,7 +3,6 @@ import { useState } from "react";
 import { AuthScreen } from "@/app/screens/auth-screen";
 import { HomeScreen } from "@/app/screens/home-screen";
 import { LibraryScreen } from "@/app/screens/library-screen";
-import { DayFlowScreenV3 } from "@/app/screens/dayflow-screen-v3";
 import { ChangelogScreen } from "@/app/components/changelog-screen";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-api";
@@ -162,7 +161,7 @@ export default function RitualsApp() {
               );
 
             case "dayflow":
-              return <DayFlowScreenV3 onNavigate={handleNavigate} />;
+              return <></>;
 
             case "settings":
               return (

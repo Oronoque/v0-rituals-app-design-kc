@@ -16,8 +16,9 @@ import {
   Send,
   MessageCircle,
 } from "lucide-react"
-import type { FlowState, Ritual } from "@/app/types"
+import type { FlowState } from "@/app/types"
 import { cn } from "@/lib/utils"
+import { RitualWithSteps } from "@/backend/src/types/database"
 
 interface ChatMessage {
   id: string
@@ -28,7 +29,7 @@ interface ChatMessage {
 
 interface ReflectionScreenProps {
   onNavigate: (flow: FlowState) => void
-  completedRituals: Ritual[]
+  completedRituals: RitualWithSteps[]
   dayRating: number
   dayReflection: string
   onShutdownComplete: () => void
@@ -51,9 +52,9 @@ export function ReflectionScreen({
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   // Calculate completion stats
-  const totalSteps = completedRituals.reduce((sum, ritual) => sum + ritual.steps.length, 0)
+  const totalSteps = completedRituals.reduce((sum, ritual) => sum + ritual.step_definitions.length, 0)
   const completedSteps = completedRituals.reduce(
-    (sum, ritual) => sum + ritual.steps.filter((step) => step.completed).length,
+    (sum, ritual) => sum + ritual.step_definitions.filter((step) => step.is_required).length,
     0,
   )
   const completionRate = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
@@ -85,7 +86,7 @@ export function ReflectionScreen({
   }, [completedRituals, dayRating, dayReflection, completionRate])
 
   const generateJungianAnalysis = (
-    rituals: Ritual[],
+    rituals: RitualWithSteps[],
     rating: number,
     reflection: string,
     completion: number,

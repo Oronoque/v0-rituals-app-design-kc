@@ -1,28 +1,6 @@
 // Validation utilities for the fully-typed rituals system
 // Uses Zod schemas with inferred TypeScript types
 
-import {
-  NewRitual,
-  NewRitualFrequency,
-  NewStepDefinition,
-  StepConfigOf,
-  StepType,
-} from "@/types/database";
-import {
-  ritualCategorySchema,
-  ritualFrequencyTypeSchema,
-  workoutSetTypeSchema,
-  workoutSetUnitSchema,
-  stepTypeSchema,
-  booleanStepConfigSchema,
-  counterStepConfigSchema,
-  qnaStepConfigSchema,
-  scaleStepConfigSchema,
-  timerStepConfigSchema,
-  exerciseSetStepConfigSchema,
-  stepDefinitionSchema,
-  UUID,
-} from "@/types/schema";
 import { v4 } from "uuid";
 import { z } from "zod";
 

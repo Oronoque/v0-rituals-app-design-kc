@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ValidationError } from "../utils/validation";
-import { ApiResponse } from "@/types/api";
+import { ApiResponse } from "../types/api";
 
 export interface ApiError {
   error: string;

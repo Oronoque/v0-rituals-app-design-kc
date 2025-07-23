@@ -15,14 +15,14 @@ import {
   StepResponseUpdate,
   RitualUpdate,
   RitualFrequencyUpdate,
-} from "@/types/database";
+} from "../types/database";
 import {
   UUID,
   ritualCategorySchema,
   ritualFrequencyTypeSchema,
   stepDefinitionSchema,
   stepResponseSchema,
-} from "@/types/schema";
+} from "../types/schema";
 import { v4 } from "uuid";
 import { z } from "zod";
 import { toNull } from "./util";

@@ -486,6 +486,7 @@ export function CreateRitualFormV2({
           days_of_week: formData.frequency.days_of_week.length > 0 ? formData.frequency.days_of_week : null,
           specific_dates: formData.frequency.specific_dates.length > 0 ? formData.frequency.specific_dates : null,
         },
+        // @ts-ignore
         step_definitions: formData.step_definitions.map((step) => ({
           order_index: step.order_index,
           type: step.type as any,

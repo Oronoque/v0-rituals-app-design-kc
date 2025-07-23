@@ -134,13 +134,13 @@ export function LibraryScreen({ onNavigate, onCreateRitual }: LibraryScreenProps
     search: searchQuery || undefined,
     category: selectedCategory !== "all" ? selectedCategory : undefined,
     limit: 20,
-    sort_by: 'fork_count',
-    sort_order: 'desc'
+    offset: 0,
   })
 
   const { data: privateData, isLoading: privateLoading } = useUserRituals({
     category: selectedCategory !== "all" ? selectedCategory : undefined,
-    limit: 20
+      limit: 20,
+    offset: 0,
   })
 
   const handleFork = (ritualId: string) => {
@@ -159,7 +159,7 @@ export function LibraryScreen({ onNavigate, onCreateRitual }: LibraryScreenProps
 
   // Show create ritual form
   if (showCreateForm) {
-    return <CreateRitualFormV2 onBack={() => setShowCreateForm(false)} />
+    return <CreateRitualFormV2 onCancel={() => setShowCreateForm(false)} />
   }
 
   return (

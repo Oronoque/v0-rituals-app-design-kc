@@ -1059,6 +1059,7 @@ export const batchCompleteRituals = asyncHandler(
             .values(completion)
             .returningAll()
             .executeTakeFirstOrThrow();
+          // @ts-ignore
           createdCompletions.push(createdCompletion);
         }
 

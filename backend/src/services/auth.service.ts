@@ -11,7 +11,7 @@ import {
   LoginRequest,
   RegisterRequest,
   UpdateUserRequest,
-} from "@/utils/validation";
+} from "../utils/validation";
 import { db } from "../database/connection";
 
 export class AuthService {
