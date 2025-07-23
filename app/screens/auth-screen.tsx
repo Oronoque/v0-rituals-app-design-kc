@@ -1,55 +1,63 @@
-"use client"
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Mail, Target, Eye, EyeOff } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useAuth } from "@/hooks/use-api"
+"use client";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Mail, Target, Eye, EyeOff, User } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-api";
 
 interface AuthScreenProps {
-  onAuthenticate?: () => void
+  onAuthenticate?: () => void;
 }
 
 export function AuthScreen({ onAuthenticate }: AuthScreenProps) {
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [localError, setLocalError] = useState("")
-  
-  const { login, register, isLoggingIn, isRegistering } = useAuth()
-  const isLoading = isLoggingIn || isRegistering
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [localError, setLocalError] = useState("");
+
+  const { login, register, isLoggingIn, isRegistering } = useAuth();
+  const isLoading = isLoggingIn || isRegistering;
 
   const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLocalError("")
+    e.preventDefault();
+    setLocalError("");
 
     if (!email || !password) {
-      setLocalError("Please fill in all fields")
-      return
+      setLocalError("Please enter email and password");
+      return;
+    }
+
+    if (authMode === "signup" && (!firstName || !lastName)) {
+      setLocalError("Please enter your first and last name");
+      return;
     }
 
     if (password.length < 8) {
-      setLocalError("Password must be at least 8 characters")
-      return
+      setLocalError("Password must be at least 8 characters");
+      return;
     }
 
     try {
       if (authMode === "signin") {
-        login({ email, password })
+        console.log("login", email, password);
+        await login({ email, password });
       } else {
-        register({ email, password })
+        console.log("register", email, password, firstName, lastName);
+        await register({
+          email,
+          password,
+          first_name: firstName,
+          last_name: lastName,
+        });
       }
-      
-      // Note: Success handling and navigation is now handled by React Query hooks
-      // The hooks will automatically redirect and show success messages
-      
     } catch (err: any) {
-      // This shouldn't happen as React Query handles errors,
-      // but kept for safety
-      setLocalError(err.message || "Authentication failed")
+      setLocalError(err.message || "Authentication failed");
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0D0D0E] via-[#1C1C1E] to-[#2C2C2E] flex items-center justify-center p-4">
@@ -59,7 +67,7 @@ export function AuthScreen({ onAuthenticate }: AuthScreenProps) {
         <div className="bg-[#1C1C1E] rounded-3xl shadow-2xl border border-[#3C3C3E]/30 overflow-hidden">
           {/* Status Bar Simulation */}
           <div className="h-1 bg-gradient-to-r from-blue-500 to-purple-600"></div>
-          
+
           {/* Main Content */}
           <div className="px-8 py-12">
             {/* App Branding */}
@@ -83,14 +91,14 @@ export function AuthScreen({ onAuthenticate }: AuthScreenProps) {
                     type="button"
                     variant="ghost"
                     onClick={() => {
-                      setAuthMode("signin")
-                      setLocalError("")
+                      setAuthMode("signin");
+                      setLocalError("");
                     }}
                     className={cn(
                       "flex-1 h-11 rounded-xl transition-all duration-200 font-medium text-sm",
-                      authMode === "signin" 
-                        ? "bg-blue-500 text-white shadow-lg shadow-blue-500/25" 
-                        : "text-[#8E8E93] hover:text-white hover:bg-[#3C3C3E]",
+                      authMode === "signin"
+                        ? "bg-blue-500 text-white shadow-lg shadow-blue-500/25"
+                        : "text-[#8E8E93] hover:text-white hover:bg-[#3C3C3E]"
                     )}
                   >
                     Sign In
@@ -99,20 +107,65 @@ export function AuthScreen({ onAuthenticate }: AuthScreenProps) {
                     type="button"
                     variant="ghost"
                     onClick={() => {
-                      setAuthMode("signup")
-                      setLocalError("")
+                      setAuthMode("signup");
+                      setLocalError("");
                     }}
                     className={cn(
                       "flex-1 h-11 rounded-xl transition-all duration-200 font-medium text-sm",
-                      authMode === "signup" 
-                        ? "bg-blue-500 text-white shadow-lg shadow-blue-500/25" 
-                        : "text-[#8E8E93] hover:text-white hover:bg-[#3C3C3E]",
+                      authMode === "signup"
+                        ? "bg-blue-500 text-white shadow-lg shadow-blue-500/25"
+                        : "text-[#8E8E93] hover:text-white hover:bg-[#3C3C3E]"
                     )}
                   >
                     Sign Up
                   </Button>
                 </div>
               </div>
+
+              {authMode === "signup" && (
+                <>
+                  {/* First Name Input */}
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
+                        <User className="w-5 h-5 text-[#8E8E93]" />
+                      </div>
+                      <Input
+                        type="text"
+                        placeholder="First name"
+                        value={firstName}
+                        onChange={(e) => {
+                          setFirstName(e.target.value);
+                          setLocalError("");
+                        }}
+                        className="h-14 bg-[#2C2C2E] border-[#3C3C3E] text-white placeholder-[#8E8E93] rounded-2xl pl-12 pr-4 text-base focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+                  {/* Last Name Input */}
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
+                        <User className="w-5 h-5 text-[#8E8E93]" />
+                      </div>
+                      <Input
+                        type="text"
+                        placeholder="Last name"
+                        value={lastName}
+                        onChange={(e) => {
+                          setLastName(e.target.value);
+                          setLocalError("");
+                        }}
+                        className="h-14 bg-[#2C2C2E] border-[#3C3C3E] text-white placeholder-[#8E8E93] rounded-2xl pl-12 pr-4 text-base focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Email Input */}
               <div className="space-y-3">
@@ -125,8 +178,8 @@ export function AuthScreen({ onAuthenticate }: AuthScreenProps) {
                     placeholder="Email address"
                     value={email}
                     onChange={(e) => {
-                      setEmail(e.target.value)
-                      setLocalError("")
+                      setEmail(e.target.value);
+                      setLocalError("");
                     }}
                     className="h-14 bg-[#2C2C2E] border-[#3C3C3E] text-white placeholder-[#8E8E93] rounded-2xl pl-12 pr-4 text-base focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
                     required
@@ -143,8 +196,8 @@ export function AuthScreen({ onAuthenticate }: AuthScreenProps) {
                     placeholder="Password"
                     value={password}
                     onChange={(e) => {
-                      setPassword(e.target.value)
-                      setLocalError("")
+                      setPassword(e.target.value);
+                      setLocalError("");
                     }}
                     className="h-14 bg-[#2C2C2E] border-[#3C3C3E] text-white placeholder-[#8E8E93] rounded-2xl pl-4 pr-14 text-base focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
                     required
@@ -170,7 +223,9 @@ export function AuthScreen({ onAuthenticate }: AuthScreenProps) {
               {/* Error Message */}
               {localError && (
                 <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 backdrop-blur-sm">
-                  <p className="text-red-400 text-sm text-center font-medium">{localError}</p>
+                  <p className="text-red-400 text-sm text-center font-medium">
+                    {localError}
+                  </p>
                 </div>
               )}
 
@@ -183,7 +238,9 @@ export function AuthScreen({ onAuthenticate }: AuthScreenProps) {
                 {isLoading ? (
                   <div className="flex items-center justify-center">
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3" />
-                    {authMode === "signin" ? "Signing In..." : "Creating Account..."}
+                    {authMode === "signin"
+                      ? "Signing In..."
+                      : "Creating Account..."}
                   </div>
                 ) : authMode === "signin" ? (
                   "Sign In"
@@ -196,7 +253,9 @@ export function AuthScreen({ onAuthenticate }: AuthScreenProps) {
             {/* Password Requirements for Sign Up */}
             {authMode === "signup" && (
               <div className="mt-6 p-5 bg-[#2C2C2E]/60 rounded-2xl border border-[#3C3C3E]/50 backdrop-blur-sm">
-                <p className="text-[#8E8E93] text-sm mb-3 font-medium">Password requirements:</p>
+                <p className="text-[#8E8E93] text-sm mb-3 font-medium">
+                  Password requirements:
+                </p>
                 <ul className="text-xs text-[#8E8E93] space-y-1.5">
                   <li className="flex items-center">
                     <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></div>
@@ -218,7 +277,6 @@ export function AuthScreen({ onAuthenticate }: AuthScreenProps) {
               </div>
             )}
 
-
             {/* Footer */}
             <div className="text-center mt-8 pt-6 border-t border-[#3C3C3E]/30">
               <p className="text-xs text-[#8E8E93] leading-relaxed">
@@ -236,5 +294,5 @@ export function AuthScreen({ onAuthenticate }: AuthScreenProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

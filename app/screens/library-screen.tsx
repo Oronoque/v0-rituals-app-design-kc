@@ -10,8 +10,8 @@ import {
   useForkRitual,
   useAuth 
 } from "@/hooks/use-api"
-import type { Ritual } from "@/lib/api"
-import { CreateRitualForm } from "@/app/components/create-ritual-form"
+import type { RitualWithSteps } from "@/backend/src/types/database"
+import { CreateRitualFormV2 } from "@/app/components/create-ritual-form-v2"
 
 interface LibraryScreenProps {
   onNavigate?: (screen: string) => void
@@ -28,7 +28,7 @@ const categories = [
 ]
 
 interface RitualCardProps {
-  ritual: Ritual
+  ritual: RitualWithSteps
   onFork?: (id: string) => void
   onAdd?: (id: string) => void
   isPublic?: boolean
@@ -83,7 +83,7 @@ function RitualCard({ ritual, onFork, onAdd, isPublic = false, isForking = false
         )}
         <div className="flex items-center gap-1">
           <Clock className="w-3 h-3" />
-          <span>{ritual.steps.length} steps</span>
+                          <span>{ritual.step_definitions?.length || 0} steps</span>
         </div>
       </div>
 
@@ -159,18 +159,11 @@ export function LibraryScreen({ onNavigate, onCreateRitual }: LibraryScreenProps
 
   // Show create ritual form
   if (showCreateForm) {
-    return <CreateRitualForm onBack={() => setShowCreateForm(false)} />
+    return <CreateRitualFormV2 onBack={() => setShowCreateForm(false)} />
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0D0D0E] via-[#1C1C1E] to-[#2C2C2E] flex items-center justify-center p-4">
-      {/* Phone Container */}
-      <div className="w-full max-w-sm mx-auto">
-        {/* Phone Frame Effect */}
-        <div className="bg-[#1C1C1E] rounded-3xl shadow-2xl border border-[#3C3C3E]/30 overflow-hidden h-[800px] flex flex-col">
-          {/* Status Bar Simulation */}
-          <div className="h-1 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0"></div>
-          
+    <div className="flex-1 overflow-y-auto">
           {/* Header */}
           <div className="p-6 pb-4 flex-shrink-0">
             <div className="flex items-center justify-between mb-6">
@@ -317,53 +310,6 @@ export function LibraryScreen({ onNavigate, onCreateRitual }: LibraryScreenProps
               <div className="h-4"></div>
             </div>
           </div>
-
-          {/* Bottom Navigation - Always Visible */}
-          <div className="border-t border-[#3C3C3E]/30 bg-[#1C1C1E]/95 backdrop-blur-sm flex-shrink-0">
-            <div className="flex items-center justify-around py-3 px-6">
-              <Button 
-                variant="ghost" 
-                className="flex flex-col items-center gap-1 text-[#8E8E93] hover:text-white p-2"
-                onClick={() => onNavigate?.("home")}
-              >
-                <div className="w-6 h-6 rounded-md bg-[#3C3C3E] flex items-center justify-center">
-                  <span className="text-xs">🏠</span>
-                </div>
-                <span className="text-xs">Home</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="flex flex-col items-center gap-1 text-blue-500 hover:text-blue-400 p-2"
-              >
-                <div className="w-6 h-6 rounded-md bg-blue-500 flex items-center justify-center">
-                  <span className="text-xs text-white">📚</span>
-                </div>
-                <span className="text-xs font-medium">Library</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="flex flex-col items-center gap-1 text-[#8E8E93] hover:text-white p-2"
-                onClick={() => onNavigate?.("journal")}
-              >
-                <div className="w-6 h-6 rounded-md bg-[#3C3C3E] flex items-center justify-center">
-                  <span className="text-xs">📝</span>
-                </div>
-                <span className="text-xs">Journal</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="flex flex-col items-center gap-1 text-[#8E8E93] hover:text-white p-2"
-                onClick={() => onNavigate?.("social")}
-              >
-                <div className="w-6 h-6 rounded-md bg-[#3C3C3E] flex items-center justify-center">
-                  <span className="text-xs">👥</span>
-                </div>
-                <span className="text-xs">Social</span>
-              </Button>
-            </div>
-          </div>
         </div>
-      </div>
-    </div>
   )
 }

@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/use-api";
 import { Home, BookOpen, Calendar, Users, PenTool } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { FlowState } from "@/app/types";
+import { CreateRitualFormV2 } from "@/app/components/create-ritual-form-v2";
 
 export default function RitualsApp() {
   const [currentFlow, setCurrentFlow] = useState<FlowState>("home");
@@ -154,15 +155,10 @@ export default function RitualsApp() {
 
             case "create":
               return (
-                <div className="flex-1 flex items-center justify-center p-4">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-bold mb-4 text-white">Create Ritual</h2>
-                    <p className="text-[#AEAEB2] mb-6">Ritual creation form coming soon...</p>
-                    <Button onClick={() => handleNavigate("home")} className="bg-blue-500 hover:bg-blue-600">
-                      Back to Home
-                    </Button>
-                  </div>
-                </div>
+                <CreateRitualFormV2
+                  onCancel={() => handleNavigate("home")}
+                  onSuccess={() => handleNavigate("home")}
+                />
               );
 
             case "dayflow":
