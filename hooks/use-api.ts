@@ -5,13 +5,20 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { api, apiClient } from "@/lib/api";
 import { queryKeys } from "@/lib/query-client";
-import type {
-  User,
-  Ritual,
-  CreateRitualRequest,
-  LoginRequest,
-  RegisterRequest,
-} from "@/lib/api";
+import { LoginRequest, RegisterRequest } from "@/backend/src/utils/validation";
+import {
+  CreateRitual,
+  CompleteRitual,
+  UpdateRitual,
+  UpdateRitualCompletion,
+  QuickStepResponse,
+  QuickUpdateResponse,
+  BatchCompleteRituals,
+} from "@/backend/src/utils/validation-extended";
+import {
+  RitualWithConfig,
+  UserDailySchedule,
+} from "@/backend/src/types/database";
 
 // Auth Hooks
 export function useCurrentUser() {
@@ -95,9 +102,21 @@ export function useLogout() {
   });
 }
 
+// Daily Schedule Hooks
+export function useDailySchedule(date: string) {
+  return useQuery({
+    queryKey: queryKeys.daily.schedule(date),
+    queryFn: () => api.getDailySchedule(date),
+    enabled: !!date && apiClient.isAuthenticated(),
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+  });
+}
+
 // Ritual Hooks
 export function useUserRituals(params?: {
+  filter?: "all" | "public" | "private";
   category?: string;
+  search?: string;
   limit?: number;
   offset?: number;
 }) {
@@ -114,8 +133,6 @@ export function usePublicRituals(params?: {
   category?: string;
   limit?: number;
   offset?: number;
-  sort_by?: "name" | "fork_count" | "completion_count" | "created_at";
-  sort_order?: "asc" | "desc";
 }) {
   return useQuery({
     queryKey: queryKeys.rituals.public(params),
@@ -132,11 +149,20 @@ export function useRitualById(id: string) {
   });
 }
 
+export function useRitualStats(id: string) {
+  return useQuery({
+    queryKey: queryKeys.rituals.stats(id),
+    queryFn: () => api.getRitualStats(id),
+    enabled: !!id && apiClient.isAuthenticated(),
+    staleTime: 5 * 60 * 1000, // Stats cache for 5 minutes
+  });
+}
+
 export function useCreateRitual() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (ritual: CreateRitualRequest) => api.createRitual(ritual),
+    mutationFn: (ritual: CreateRitual) => api.createRitual(ritual),
     onSuccess: (newRitual) => {
       // Invalidate user rituals to refetch
       queryClient.invalidateQueries({ queryKey: queryKeys.rituals.user() });
@@ -156,13 +182,8 @@ export function useUpdateRitual() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      id,
-      updates,
-    }: {
-      id: string;
-      updates: Partial<CreateRitualRequest>;
-    }) => api.updateRitual(id, updates),
+    mutationFn: ({ id, updates }: { id: string; updates: UpdateRitual }) =>
+      api.updateRitual(id, updates),
     onMutate: async ({ id, updates }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.rituals.byId(id) });
@@ -224,7 +245,9 @@ export function useDeleteRitual() {
         if (!old) return old;
         return {
           ...old,
-          rituals: old.rituals.filter((ritual: Ritual) => ritual.id !== id),
+          rituals: old.rituals.filter(
+            (ritual: RitualWithConfig) => ritual.id !== id
+          ),
           total: old.total - 1,
         };
       });
@@ -249,12 +272,75 @@ export function useDeleteRitual() {
   });
 }
 
+// Ritual Completion Hooks
+export function useCompleteRitual() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      completion,
+    }: {
+      id: string;
+      completion: Omit<CompleteRitual, "ritual_id">;
+    }) => api.completeRitual(id, completion),
+    onSuccess: (completedRitual, { id }) => {
+      // Invalidate daily schedule to show completion
+      queryClient.invalidateQueries({ queryKey: queryKeys.daily.all });
+
+      // Invalidate ritual stats
+      queryClient.invalidateQueries({ queryKey: queryKeys.rituals.stats(id) });
+
+      // Update completion count in ritual cache
+      queryClient.setQueryData(queryKeys.rituals.byId(id), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          completion_count: old.completion_count + 1,
+        };
+      });
+
+      toast.success("Ritual completed successfully! 🎉");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to complete ritual");
+    },
+  });
+}
+
+export function useUpdateRitualCompletion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: UpdateRitualCompletion;
+    }) => api.updateRitualCompletion(id, updates),
+    onSuccess: (updatedCompletion, { id }) => {
+      // Invalidate daily schedule to show updated completion
+      queryClient.invalidateQueries({ queryKey: queryKeys.daily.all });
+
+      // Invalidate ritual stats
+      queryClient.invalidateQueries({ queryKey: queryKeys.rituals.stats(id) });
+
+      toast.success("Ritual completion updated successfully!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update ritual completion");
+    },
+  });
+}
+
+// Ritual Actions Hooks
 export function useForkRitual() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => api.forkRitual(id),
-    onSuccess: (forkedRitual) => {
+    onSuccess: (forkedRitual, originalId) => {
       // Invalidate user rituals to show the new fork
       queryClient.invalidateQueries({ queryKey: queryKeys.rituals.user() });
 
@@ -263,13 +349,25 @@ export function useForkRitual() {
         if (!old) return old;
         return {
           ...old,
-          rituals: old.rituals.map((ritual: Ritual) =>
-            ritual.id === forkedRitual.forked_from_id
+          rituals: old.rituals.map((ritual: RitualWithConfig) =>
+            ritual.id === originalId
               ? { ...ritual, fork_count: ritual.fork_count + 1 }
               : ritual
           ),
         };
       });
+
+      // Update fork count in individual ritual cache
+      queryClient.setQueryData(
+        queryKeys.rituals.byId(originalId),
+        (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            fork_count: old.fork_count + 1,
+          };
+        }
+      );
 
       toast.success(`"${forkedRitual.name}" forked to your library!`);
     },
@@ -326,7 +424,7 @@ export function useUnpublishRitual() {
         return {
           ...old,
           rituals: old.rituals.filter(
-            (ritual: Ritual) => ritual.id !== unpublishedRitual.id
+            (ritual: RitualWithConfig) => ritual.id !== unpublishedRitual.id
           ),
           total: old.total - 1,
         };
@@ -338,6 +436,91 @@ export function useUnpublishRitual() {
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to unpublish ritual");
+    },
+  });
+}
+
+// Quick Step Operations Hooks
+export function useCreateQuickStepResponse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      stepData,
+    }: {
+      id: string;
+      stepData: QuickStepResponse;
+    }) => api.createQuickStepResponse(id, stepData),
+    onSuccess: (_, { id }) => {
+      // Invalidate daily schedule and ritual stats
+      queryClient.invalidateQueries({ queryKey: queryKeys.daily.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.rituals.stats(id) });
+
+      toast.success("Step response added successfully!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to add step response");
+    },
+  });
+}
+
+export function useUpdateQuickStepResponse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      updateData,
+    }: {
+      id: string;
+      updateData: QuickUpdateResponse;
+    }) => api.updateQuickStepResponse(id, updateData),
+    onSuccess: (_, { id }) => {
+      // Invalidate daily schedule and ritual stats
+      queryClient.invalidateQueries({ queryKey: queryKeys.daily.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.rituals.stats(id) });
+
+      toast.success("Step response updated successfully!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update step response");
+    },
+  });
+}
+
+// Batch Operations Hooks
+export function useBatchCompleteRituals() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (batchData: BatchCompleteRituals) =>
+      api.batchCompleteRituals(batchData),
+    onSuccess: (result, variables) => {
+      // Invalidate all relevant queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.daily.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.rituals.all });
+
+      // Update completion counts for affected rituals
+      variables.completions.forEach((completion: any) => {
+        queryClient.setQueryData(
+          queryKeys.rituals.byId(completion.ritual_id),
+          (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              completion_count: old.completion_count + 1,
+            };
+          }
+        );
+      });
+
+      toast.success(
+        `🎉 ${result.total_completed} rituals completed successfully!`
+      );
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to complete rituals");
     },
   });
 }

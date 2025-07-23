@@ -34,10 +34,12 @@ export const queryKeys = {
     user: (params?: object) => ["rituals", "user", params] as const,
     public: (params?: object) => ["rituals", "public", params] as const,
     byId: (id: string) => ["rituals", "byId", id] as const,
+    stats: (id: string) => ["rituals", "stats", id] as const,
   },
-  // Future: Daily rituals, metrics, etc.
+  // Daily schedule and rituals
   daily: {
     all: ["daily"] as const,
     byDate: (date: string) => ["daily", "byDate", date] as const,
+    schedule: (date: string) => ["daily", "schedule", date] as const,
   },
 } as const;

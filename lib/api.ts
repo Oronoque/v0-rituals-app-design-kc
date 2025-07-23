@@ -1,177 +1,27 @@
+import {
+  ApiResponse,
+  AuthResponse,
+  UserProfileResponse,
+} from "@/backend/src/types/api";
+import {
+  RitualWithConfig,
+  RitualCompletionWithSteps,
+  UserDailySchedule,
+} from "@/backend/src/types/database";
+import { LoginRequest, RegisterRequest } from "@/backend/src/utils/validation";
+import {
+  CreateRitual,
+  CompleteRitual,
+  UpdateRitual,
+  UpdateRitualCompletion,
+  QuickStepResponse,
+  QuickUpdateResponse,
+  BatchCompleteRituals,
+} from "@/backend/src/utils/validation-extended";
+
 // API Client for Rituals Backend
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-
-// Types (matching backend API response format)
-export interface User {
-  id: string;
-  email: string;
-  current_streak: number;
-  proof_score: string;
-  created_at: string;
-}
-
-export interface AuthResponse {
-  user: User;
-  token: string;
-}
-
-export interface Step {
-  id: string;
-  type: "yesno" | "qa" | "weightlifting" | "cardio" | "custom";
-  name: string;
-  question?: string;
-  weightlifting_config?: Array<{
-    reps: number;
-    weight: number;
-    completed: boolean | null;
-  }>;
-  cardio_config?: Array<{
-    time: number;
-    distance: number;
-    completed: boolean | null;
-  }>;
-  custom_config?: {
-    label: string;
-    unit: string;
-  };
-  order_index: number;
-}
-
-export interface Ritual {
-  id: string;
-  name: string;
-  description?: string;
-  category?: string;
-  location?: string;
-  gear?: string[];
-  is_public: boolean;
-  forked_from_id?: string;
-  fork_count: number;
-  completion_count: number;
-  // Frequency settings
-  frequency_type: "once" | "daily" | "weekly" | "custom";
-  frequency_interval: number;
-  frequency_data?: FrequencyData;
-  is_active: boolean;
-  steps: Step[];
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateRitualRequest {
-  name: string;
-  is_public: boolean;
-  description?: string;
-  category?: string;
-  location?: string;
-  gear?: string[];
-  frequency_type: "once" | "daily" | "weekly" | "custom";
-  frequency_interval: number;
-  frequency_data?: FrequencyData;
-  steps: Array<{
-    type: "yesno" | "qa" | "weightlifting" | "cardio" | "custom";
-    name: string;
-    question?: string;
-    weightlifting_config?: Array<{
-      reps: number;
-      weight: number;
-      completed?: boolean | null;
-    }>;
-    cardio_config?: Array<{
-      time: number;
-      distance: number;
-      completed?: boolean | null;
-    }>;
-    custom_config?: {
-      label: string;
-      unit: string;
-    };
-  }>;
-}
-
-export interface CreateDailyRitualRequest {
-  ritual_id: string;
-  scheduled_date: string;
-  scheduled_time?: string;
-}
-
-export interface UpdateDailyRitualRequest {
-  scheduled_time?: string;
-  steps?: Array<{
-    step_id: string;
-    completed?: boolean;
-    skipped?: boolean;
-    answer?: StepAnswer;
-    was_modified?: boolean;
-  }>;
-}
-
-// Frequency configuration types
-export interface FrequencyData {
-  days_of_week?: number[]; // 0-6 for Sunday-Saturday (for weekly custom)
-  specific_dates?: string[]; // For specific date scheduling
-  [key: string]: any; // Allow for future frequency types
-}
-
-// Daily Ritual (for daily instances)
-export interface DailyRitual {
-  id: string;
-  user_id: string;
-  ritual: Ritual;
-  scheduled_date: string;
-  scheduled_time?: string;
-  completed: boolean;
-  was_modified: boolean;
-  completed_at?: string;
-  steps: DailyStep[];
-}
-
-// Step answer types
-export interface WeightliftingAnswer {
-  sets: Array<{ reps: number; weight: number; completed?: boolean }>;
-}
-
-export interface CardioAnswer {
-  rounds: Array<{ time: number; distance: number; completed?: boolean }>;
-}
-
-export interface CustomAnswer {
-  value: number;
-  unit: string;
-}
-
-export type StepAnswer =
-  | string
-  | WeightliftingAnswer
-  | CardioAnswer
-  | CustomAnswer;
-
-// Daily Step (for daily instances - with completion status)
-export interface DailyStep extends Step {
-  completed: boolean;
-  skipped: boolean;
-  answer?: StepAnswer;
-  was_modified: boolean;
-  completed_at?: string;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-}
-
-export interface ApiError {
-  error: string;
-  message: string;
-  details?: Record<string, string[]>;
-}
 
 // API Client Class
 export class ApiClient {
@@ -205,13 +55,14 @@ export class ApiClient {
       headers,
     });
 
-    const data = await response.json();
+    const apiResponse = (await response.json()) as ApiResponse<T>;
 
-    if (!response.ok) {
-      throw new Error(data.message || "API request failed");
+    if (!apiResponse.success || !apiResponse.data) {
+      console.error(apiResponse);
+      throw new Error(apiResponse.message || "API request failed");
     }
 
-    return data;
+    return apiResponse.data;
   }
 
   // Auth Methods
@@ -243,8 +94,8 @@ export class ApiClient {
     return response;
   }
 
-  async getCurrentUser(): Promise<User> {
-    return this.request<User>("/auth/me");
+  async getCurrentUser(): Promise<UserProfileResponse> {
+    return this.request<UserProfileResponse>("/auth/profile");
   }
 
   async getUserStats(): Promise<{
@@ -252,7 +103,6 @@ export class ApiClient {
     public_rituals: number;
     total_forks: number;
     current_streak: number;
-    proof_score: string;
   }> {
     return this.request("/auth/stats");
   }
@@ -264,28 +114,40 @@ export class ApiClient {
     }
   }
 
+  // Daily Schedule Methods
+  async getDailySchedule(date: string): Promise<UserDailySchedule> {
+    const params = new URLSearchParams({ date });
+    return this.request<UserDailySchedule>(`/daily-rituals/schedule?${params}`);
+  }
+
   // Ritual Methods
-  async createRitual(ritual: CreateRitualRequest): Promise<Ritual> {
-    return this.request<Ritual>("/rituals", {
+  async createRitual(ritual: CreateRitual): Promise<RitualWithConfig> {
+    return this.request<RitualWithConfig>("/rituals", {
       method: "POST",
       body: JSON.stringify(ritual),
     });
   }
 
   async getUserRituals(options?: {
+    filter?: "all" | "public" | "private";
     category?: string;
+    search?: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ rituals: Ritual[]; total: number }> {
+  }): Promise<{ rituals: RitualWithConfig[]; total: number }> {
     const params = new URLSearchParams();
+    if (options?.filter) params.append("filter", options.filter);
     if (options?.category) params.append("category", options.category);
+    if (options?.search) params.append("search", options.search);
     if (options?.limit) params.append("limit", options.limit.toString());
     if (options?.offset) params.append("offset", options.offset.toString());
 
     const queryString = params.toString();
     const endpoint = queryString ? `/rituals?${queryString}` : "/rituals";
 
-    return this.request<{ rituals: Ritual[]; total: number }>(endpoint);
+    return this.request<{ rituals: RitualWithConfig[]; total: number }>(
+      endpoint
+    );
   }
 
   async getPublicRituals(options?: {
@@ -293,34 +155,40 @@ export class ApiClient {
     category?: string;
     limit?: number;
     offset?: number;
-    sort_by?: "name" | "fork_count" | "completion_count" | "created_at";
-    sort_order?: "asc" | "desc";
-  }): Promise<{ rituals: Ritual[]; total: number }> {
+  }): Promise<{ rituals: RitualWithConfig[]; total: number }> {
     const params = new URLSearchParams();
     if (options?.search) params.append("search", options.search);
     if (options?.category) params.append("category", options.category);
     if (options?.limit) params.append("limit", options.limit.toString());
     if (options?.offset) params.append("offset", options.offset.toString());
-    if (options?.sort_by) params.append("sort_by", options.sort_by);
-    if (options?.sort_order) params.append("sort_order", options.sort_order);
 
     const queryString = params.toString();
     const endpoint = queryString
       ? `/rituals/public?${queryString}`
       : "/rituals/public";
 
-    return this.request<{ rituals: Ritual[]; total: number }>(endpoint);
+    return this.request<{ rituals: RitualWithConfig[]; total: number }>(
+      endpoint
+    );
   }
 
-  async getRitualById(id: string): Promise<Ritual> {
-    return this.request<Ritual>(`/rituals/${id}`);
+  async getRitualById(id: string): Promise<RitualWithConfig> {
+    return this.request<RitualWithConfig>(`/rituals/${id}`);
+  }
+
+  async getRitualStats(id: string): Promise<{
+    total_completions: number;
+    avg_duration: number;
+    recent_completions: any[];
+  }> {
+    return this.request(`/rituals/${id}/stats`);
   }
 
   async updateRitual(
     id: string,
-    updates: Partial<CreateRitualRequest>
-  ): Promise<Ritual> {
-    return this.request<Ritual>(`/rituals/${id}`, {
+    updates: UpdateRitual
+  ): Promise<RitualWithConfig> {
+    return this.request<RitualWithConfig>(`/rituals/${id}`, {
       method: "PUT",
       body: JSON.stringify(updates),
     });
@@ -332,21 +200,73 @@ export class ApiClient {
     });
   }
 
-  async forkRitual(id: string): Promise<Ritual> {
-    return this.request<Ritual>(`/rituals/${id}/fork`, {
+  async completeRitual(
+    id: string,
+    completion: Omit<CompleteRitual, "ritual_id">
+  ): Promise<RitualCompletionWithSteps> {
+    return this.request<RitualCompletionWithSteps>(`/rituals/${id}/complete`, {
+      method: "POST",
+      body: JSON.stringify(completion),
+    });
+  }
+
+  async updateRitualCompletion(
+    id: string,
+    updates: UpdateRitualCompletion
+  ): Promise<RitualCompletionWithSteps> {
+    return this.request<RitualCompletionWithSteps>(`/rituals/${id}/complete`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async forkRitual(id: string): Promise<RitualWithConfig> {
+    return this.request<RitualWithConfig>(`/rituals/${id}/fork`, {
       method: "POST",
     });
   }
 
-  async publishRitual(id: string): Promise<Ritual> {
-    return this.request<Ritual>(`/rituals/${id}/publish`, {
+  async publishRitual(id: string): Promise<RitualWithConfig> {
+    return this.request<RitualWithConfig>(`/rituals/${id}/publish`, {
       method: "POST",
     });
   }
 
-  async unpublishRitual(id: string): Promise<Ritual> {
-    return this.request<Ritual>(`/rituals/${id}/unpublish`, {
+  async unpublishRitual(id: string): Promise<RitualWithConfig> {
+    return this.request<RitualWithConfig>(`/rituals/${id}/unpublish`, {
       method: "POST",
+    });
+  }
+
+  // Quick Step Operations
+  async createQuickStepResponse(
+    id: string,
+    stepData: QuickStepResponse
+  ): Promise<any> {
+    return this.request(`/rituals/${id}/quick-step`, {
+      method: "POST",
+      body: JSON.stringify(stepData),
+    });
+  }
+
+  async updateQuickStepResponse(
+    id: string,
+    updateData: QuickUpdateResponse
+  ): Promise<any> {
+    return this.request(`/rituals/${id}/quick-update`, {
+      method: "PUT",
+      body: JSON.stringify(updateData),
+    });
+  }
+
+  // Batch Operations
+  async batchCompleteRituals(batchData: BatchCompleteRituals): Promise<{
+    completions: any[];
+    total_completed: number;
+  }> {
+    return this.request(`/rituals/batch-complete`, {
+      method: "POST",
+      body: JSON.stringify(batchData),
     });
   }
 
@@ -376,18 +296,36 @@ export const api = {
   logout: () => apiClient.logout(),
   isAuthenticated: () => apiClient.isAuthenticated(),
 
+  // Daily Schedule
+  getDailySchedule: (date: string) => apiClient.getDailySchedule(date),
+
   // Rituals
-  createRitual: (ritual: CreateRitualRequest) => apiClient.createRitual(ritual),
+  createRitual: (ritual: CreateRitual) => apiClient.createRitual(ritual),
   getUserRituals: (options?: Parameters<typeof apiClient.getUserRituals>[0]) =>
     apiClient.getUserRituals(options),
   getPublicRituals: (
     options?: Parameters<typeof apiClient.getPublicRituals>[0]
   ) => apiClient.getPublicRituals(options),
   getRitualById: (id: string) => apiClient.getRitualById(id),
-  updateRitual: (id: string, updates: Partial<CreateRitualRequest>) =>
+  getRitualStats: (id: string) => apiClient.getRitualStats(id),
+  updateRitual: (id: string, updates: UpdateRitual) =>
     apiClient.updateRitual(id, updates),
   deleteRitual: (id: string) => apiClient.deleteRitual(id),
+  completeRitual: (id: string, completion: Omit<CompleteRitual, "ritual_id">) =>
+    apiClient.completeRitual(id, completion),
+  updateRitualCompletion: (id: string, updates: UpdateRitualCompletion) =>
+    apiClient.updateRitualCompletion(id, updates),
   forkRitual: (id: string) => apiClient.forkRitual(id),
   publishRitual: (id: string) => apiClient.publishRitual(id),
   unpublishRitual: (id: string) => apiClient.unpublishRitual(id),
+
+  // Quick Step Operations
+  createQuickStepResponse: (id: string, stepData: QuickStepResponse) =>
+    apiClient.createQuickStepResponse(id, stepData),
+  updateQuickStepResponse: (id: string, updateData: QuickUpdateResponse) =>
+    apiClient.updateQuickStepResponse(id, updateData),
+
+  // Batch Operations
+  batchCompleteRituals: (batchData: BatchCompleteRituals) =>
+    apiClient.batchCompleteRituals(batchData),
 };
