@@ -20,7 +20,7 @@ import {
 } from "@/backend/src/utils/validation-extended";
 
 // API Client for Rituals Backend
-const API_BASE_URL = "http://64.23.179.217:3001/api";
+const API_BASE_URL = "https://13ec7627f6ff.ngrok-free.app/api";
 
 // API Client Class
 export class ApiClient {
