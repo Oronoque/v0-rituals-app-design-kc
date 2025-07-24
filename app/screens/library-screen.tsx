@@ -139,7 +139,7 @@ export function LibraryScreen({ onNavigate, onCreateRitual }: LibraryScreenProps
 
   const { data: privateData, isLoading: privateLoading } = useUserRituals({
     category: selectedCategory !== "all" ? selectedCategory : undefined,
-      limit: 20,
+    limit: 20,
     offset: 0,
   })
 

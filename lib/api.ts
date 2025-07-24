@@ -55,6 +55,10 @@ export class ApiClient {
       headers,
     });
 
+    if (response.status === 204) {
+      return {} as T; // Return an empty object if no content
+    }
+
     const apiResponse = (await response.json()) as ApiResponse<T>;
 
     if (!apiResponse.success || !apiResponse.data) {
@@ -64,7 +68,6 @@ export class ApiClient {
 
     return apiResponse.data;
   }
-
   // Auth Methods
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     const response = await this.request<AuthResponse>("/auth/login", {

@@ -76,7 +76,7 @@ const buildRitualsWithConfig = async (
       .execute();
 
     const ritual: Ritual = {
-      id: row.id,
+      id: row.ritual_id!,
       user_id: row.user_id,
       name: row.name,
       description: row.description,
@@ -94,7 +94,7 @@ const buildRitualsWithConfig = async (
 
     const frequency: RitualFrequency = {
       id: row.id,
-      ritual_id: row.id,
+      ritual_id: row.ritual_id!,
       frequency_type: row.frequency_type,
       frequency_interval: row.frequency_interval || 1,
       days_of_week: row.days_of_week,
@@ -719,6 +719,7 @@ export const deleteRitual = asyncHandler(
 
     return res.status(204).json({
       success: true,
+      data: { message: "Ritual deleted successfully" },
       message: "Ritual deleted successfully",
     });
   }

@@ -21,6 +21,7 @@ interface ExerciseSet {
   }>
   completed: boolean
   rest_time_seconds?: number
+  reps: number // Track reps separately
 }
 
 interface StepCompletionFormProps {
@@ -46,11 +47,7 @@ export function StepCompletionForm({
 
   const handleStepComplete = (stepIndex: number, data: any) => {
     setStepCompletions(prev => ({ ...prev, [stepIndex]: data }))
-    
-    // Auto-advance to next step if not the last one
-    if (stepIndex < ritual.step_definitions.length - 1) {
-      setCurrentStepIndex(stepIndex + 1)
-    }
+    // Removed auto-advance - only advance when user clicks "Next" button
   }
 
   const handleComplete = () => {
@@ -371,24 +368,35 @@ function ExerciseSetCompletion({
   const [sets, setSets] = useState<ExerciseSet[]>(() => {
     if (completion?.sets) return completion.sets
     
-    return Array.from({ length: targetSets }, (_, index) => ({
-      set_index: index,
-      set_type: "REPS",
-      values: [
-        { type: "REPS", value: 0, unit: "reps" },
-        { type: "WEIGHT", value: targetWeight, unit: "kg" }
-      ],
-      completed: false,
-      rest_time_seconds: step.config?.rest_time_seconds || 60
-    }))
+    return Array.from({ length: targetSets }, (_, index) => {
+      const setValues = []
+      
+      // Only track weight for weighted exercises (reps will be tracked separately in the response)
+      if (targetWeight > 0) {
+        setValues.push({ type: "WEIGHT", value: targetWeight, unit: "kg" })
+      }
+      
+      return {
+        set_index: index,
+        set_type: targetWeight > 0 ? "WEIGHT" : "BODYWEIGHT",
+        values: setValues,
+        completed: false,
+        rest_time_seconds: step.config?.rest_time_seconds || 60,
+        reps: 0 // Track reps separately, not as a value with unit
+      }
+    })
   })
 
   const handleSetUpdate = (setIndex: number, field: string, value: any) => {
     const updatedSets = [...sets]
     if (field === 'reps') {
-      updatedSets[setIndex].values[0].value = value
+      updatedSets[setIndex].reps = value
     } else if (field === 'weight') {
-      updatedSets[setIndex].values[1].value = value
+      // Update weight value if it exists
+      const weightIndex = updatedSets[setIndex].values.findIndex(v => v.type === 'WEIGHT')
+      if (weightIndex >= 0) {
+        updatedSets[setIndex].values[weightIndex].value = value
+      }
     } else if (field === 'completed') {
       updatedSets[setIndex].completed = value
     }
@@ -397,7 +405,7 @@ function ExerciseSetCompletion({
     // Auto-update completion
     const completedSets = updatedSets.filter(set => set.completed).length
     const totalReps = updatedSets.reduce((sum, set) => 
-      sum + (set.completed ? set.values[0].value : 0), 0
+      sum + (set.completed ? set.reps : 0), 0
     )
     
     onComplete({
@@ -410,7 +418,7 @@ function ExerciseSetCompletion({
 
   const completedSets = sets.filter(set => set.completed).length
   const totalReps = sets.reduce((sum, set) => 
-    sum + (set.completed ? set.values[0].value : 0), 0
+    sum + (set.completed ? set.reps : 0), 0
   )
 
   return (
@@ -444,32 +452,32 @@ function ExerciseSetCompletion({
                  />
               </div>
               
-              <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-gray-300 text-xs">Reps</label>
-                                     <Input
-                     type="number"
-                     value={set.values[0].value}
-                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                       handleSetUpdate(index, 'reps', parseInt(e.target.value) || 0)
-                     }
-                     placeholder={targetReps.toString()}
-                     className="bg-[#2C2C2E] border-[#2C2C2E] text-white text-sm h-8"
-                   />
+                  <Input
+                    type="number"
+                    value={set.reps}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                      handleSetUpdate(index, 'reps', parseInt(e.target.value) || 0)
+                    }
+                    placeholder={targetReps.toString()}
+                    className="bg-[#2C2C2E] border-[#2C2C2E] text-white text-sm h-8"
+                  />
                 </div>
                 
                 {targetWeight > 0 && (
                   <div>
                     <label className="text-gray-300 text-xs">Weight (kg)</label>
-                                         <Input
-                       type="number"
-                       value={set.values[1].value}
-                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                         handleSetUpdate(index, 'weight', parseInt(e.target.value) || 0)
-                       }
-                       placeholder={targetWeight.toString()}
-                       className="bg-[#2C2C2E] border-[#2C2C2E] text-white text-sm h-8"
-                     />
+                    <Input
+                      type="number"
+                      value={set.values.find(v => v.type === 'WEIGHT')?.value || targetWeight}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                        handleSetUpdate(index, 'weight', parseInt(e.target.value) || 0)
+                      }
+                      placeholder={targetWeight.toString()}
+                      className="bg-[#2C2C2E] border-[#2C2C2E] text-white text-sm h-8"
+                    />
                   </div>
                 )}
               </div>
