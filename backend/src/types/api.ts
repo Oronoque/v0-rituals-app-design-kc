@@ -2,14 +2,18 @@
 // COMMON API TYPES
 // ===========================================
 
+import { Result } from "neverthrow";
+import { ApiError } from "../middleware/error-handler";
 import { User, UserProgress } from "./database";
 
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T | undefined;
-  error?: string | undefined;
-  message?: string | undefined;
+export interface ApiSuccess<T> {
+  status_code: number;
+  message: string;
+  data: T;
+  success: true;
 }
+
+export type ApiResult<T> = Result<ApiSuccess<T>, ApiError>;
 
 export interface PaginationParams {
   page?: number | undefined;
@@ -69,12 +73,4 @@ export interface ValidationError {
   field: string;
   message: string;
   code: string;
-}
-
-export interface ApiError {
-  error: string;
-  message: string;
-  status_code: number;
-  validation_errors?: ValidationError[] | undefined;
-  request_id?: string | undefined;
 }

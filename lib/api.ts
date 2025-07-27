@@ -1,26 +1,28 @@
+import { ApiError } from "@/backend/src/middleware/error-handler";
 import {
-  ApiResponse,
+  ApiSuccess,
   AuthResponse,
   UserProfileResponse,
 } from "@/backend/src/types/api";
 import {
-  RitualWithConfig,
   RitualCompletionWithSteps,
+  RitualWithConfig,
   UserDailySchedule,
 } from "@/backend/src/types/database";
 import { LoginRequest, RegisterRequest } from "@/backend/src/utils/validation";
 import {
-  CreateRitual,
+  BatchCompleteRituals,
   CompleteRitual,
-  UpdateRitual,
-  UpdateRitualCompletion,
+  CreateRitual,
   QuickStepResponse,
   QuickUpdateResponse,
-  BatchCompleteRituals,
+  UpdateRitual,
+  UpdateRitualCompletion,
 } from "@/backend/src/utils/validation-extended";
 
 // API Client for Rituals Backend
-const API_BASE_URL = "https://691188dc1d83.ngrok-free.app/api";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
 // API Client Class
 export class ApiClient {
@@ -38,74 +40,76 @@ export class ApiClient {
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...(options.headers as Record<string, string>),
-    };
+  ): Promise<ApiSuccess<T>> {
+    try {
+      const url = `${this.baseUrl}${endpoint}`;
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(options.headers as Record<string, string>),
+      };
 
-    if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
+      if (this.token) {
+        headers.Authorization = `Bearer ${this.token}`;
+      }
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+
+      const apiResponse = (await response.json()) as ApiSuccess<T> | ApiError;
+      if (apiResponse.success === false) {
+        throw ApiError.parse(apiResponse);
+      }
+
+      return apiResponse;
+    } catch (error) {
+      console.error(error);
+      throw error;
     }
-
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
-
-    if (response.status === 204) {
-      return {} as T; // Return an empty object if no content
-    }
-
-    const apiResponse = (await response.json()) as ApiResponse<T>;
-
-    if (!apiResponse.success || !apiResponse.data) {
-      console.error(apiResponse);
-      throw new Error(apiResponse.message || "API request failed");
-    }
-
-    return apiResponse.data;
   }
   // Auth Methods
-  async login(credentials: LoginRequest): Promise<AuthResponse> {
+  async login(credentials: LoginRequest): Promise<ApiSuccess<AuthResponse>> {
     const response = await this.request<AuthResponse>("/auth/login", {
       method: "POST",
       body: JSON.stringify(credentials),
     });
 
-    this.token = response.token;
+    this.token = response.data.token;
     if (typeof window !== "undefined") {
-      localStorage.setItem("rituals_token", response.token);
+      localStorage.setItem("rituals_token", response.data.token);
     }
 
     return response;
   }
 
-  async register(credentials: RegisterRequest): Promise<AuthResponse> {
+  async register(
+    credentials: RegisterRequest
+  ): Promise<ApiSuccess<AuthResponse>> {
     const response = await this.request<AuthResponse>("/auth/register", {
       method: "POST",
       body: JSON.stringify(credentials),
     });
 
-    this.token = response.token;
+    this.token = response.data.token;
     if (typeof window !== "undefined") {
-      localStorage.setItem("rituals_token", response.token);
+      localStorage.setItem("rituals_token", response.data.token);
     }
 
     return response;
   }
 
-  async getCurrentUser(): Promise<UserProfileResponse> {
+  async getCurrentUser(): Promise<ApiSuccess<UserProfileResponse>> {
     return this.request<UserProfileResponse>("/auth/profile");
   }
 
-  async getUserStats(): Promise<{
-    total_rituals: number;
-    public_rituals: number;
-    total_forks: number;
-    current_streak: number;
-  }> {
+  async getUserStats(): Promise<
+    ApiSuccess<{
+      total_rituals: number;
+      public_rituals: number;
+      total_forks: number;
+      current_streak: number;
+    }>
+  > {
     return this.request("/auth/stats");
   }
 
@@ -117,13 +121,15 @@ export class ApiClient {
   }
 
   // Daily Schedule Methods
-  async getDailySchedule(date: string): Promise<UserDailySchedule> {
+  async getDailySchedule(date: string): Promise<ApiSuccess<UserDailySchedule>> {
     const params = new URLSearchParams({ date });
     return this.request<UserDailySchedule>(`/daily-rituals/schedule?${params}`);
   }
 
   // Ritual Methods
-  async createRitual(ritual: CreateRitual): Promise<RitualWithConfig> {
+  async createRitual(
+    ritual: CreateRitual
+  ): Promise<ApiSuccess<RitualWithConfig>> {
     return this.request<RitualWithConfig>("/rituals", {
       method: "POST",
       body: JSON.stringify(ritual),
@@ -136,7 +142,7 @@ export class ApiClient {
     search?: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ rituals: RitualWithConfig[]; total: number }> {
+  }): Promise<ApiSuccess<{ rituals: RitualWithConfig[]; total: number }>> {
     const params = new URLSearchParams();
     if (options?.filter) params.append("filter", options.filter);
     if (options?.category) params.append("category", options.category);
@@ -157,7 +163,7 @@ export class ApiClient {
     category?: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ rituals: RitualWithConfig[]; total: number }> {
+  }): Promise<ApiSuccess<{ rituals: RitualWithConfig[]; total: number }>> {
     const params = new URLSearchParams();
     if (options?.search) params.append("search", options.search);
     if (options?.category) params.append("category", options.category);
@@ -174,22 +180,24 @@ export class ApiClient {
     );
   }
 
-  async getRitualById(id: string): Promise<RitualWithConfig> {
+  async getRitualById(id: string): Promise<ApiSuccess<RitualWithConfig>> {
     return this.request<RitualWithConfig>(`/rituals/${id}`);
   }
 
-  async getRitualStats(id: string): Promise<{
-    total_completions: number;
-    avg_duration: number;
-    recent_completions: any[];
-  }> {
+  async getRitualStats(id: string): Promise<
+    ApiSuccess<{
+      total_completions: number;
+      avg_duration: number;
+      recent_completions: any[];
+    }>
+  > {
     return this.request(`/rituals/${id}/stats`);
   }
 
   async updateRitual(
     id: string,
     updates: UpdateRitual
-  ): Promise<RitualWithConfig> {
+  ): Promise<ApiSuccess<RitualWithConfig>> {
     return this.request<RitualWithConfig>(`/rituals/${id}`, {
       method: "PUT",
       body: JSON.stringify(updates),
@@ -205,7 +213,7 @@ export class ApiClient {
   async completeRitual(
     id: string,
     completion: Omit<CompleteRitual, "ritual_id">
-  ): Promise<RitualCompletionWithSteps> {
+  ): Promise<ApiSuccess<RitualCompletionWithSteps>> {
     return this.request<RitualCompletionWithSteps>(`/rituals/${id}/complete`, {
       method: "POST",
       body: JSON.stringify(completion),
@@ -215,26 +223,26 @@ export class ApiClient {
   async updateRitualCompletion(
     id: string,
     updates: UpdateRitualCompletion
-  ): Promise<RitualCompletionWithSteps> {
+  ): Promise<ApiSuccess<RitualCompletionWithSteps>> {
     return this.request<RitualCompletionWithSteps>(`/rituals/${id}/complete`, {
       method: "PUT",
       body: JSON.stringify(updates),
     });
   }
 
-  async forkRitual(id: string): Promise<RitualWithConfig> {
+  async forkRitual(id: string): Promise<ApiSuccess<RitualWithConfig>> {
     return this.request<RitualWithConfig>(`/rituals/${id}/fork`, {
       method: "POST",
     });
   }
 
-  async publishRitual(id: string): Promise<RitualWithConfig> {
+  async publishRitual(id: string): Promise<ApiSuccess<RitualWithConfig>> {
     return this.request<RitualWithConfig>(`/rituals/${id}/publish`, {
       method: "POST",
     });
   }
 
-  async unpublishRitual(id: string): Promise<RitualWithConfig> {
+  async unpublishRitual(id: string): Promise<ApiSuccess<RitualWithConfig>> {
     return this.request<RitualWithConfig>(`/rituals/${id}/unpublish`, {
       method: "POST",
     });
@@ -244,7 +252,7 @@ export class ApiClient {
   async createQuickStepResponse(
     id: string,
     stepData: QuickStepResponse
-  ): Promise<any> {
+  ): Promise<ApiSuccess<any>> {
     return this.request(`/rituals/${id}/quick-step`, {
       method: "POST",
       body: JSON.stringify(stepData),
@@ -254,7 +262,7 @@ export class ApiClient {
   async updateQuickStepResponse(
     id: string,
     updateData: QuickUpdateResponse
-  ): Promise<any> {
+  ): Promise<ApiSuccess<any>> {
     return this.request(`/rituals/${id}/quick-update`, {
       method: "PUT",
       body: JSON.stringify(updateData),
@@ -262,10 +270,9 @@ export class ApiClient {
   }
 
   // Batch Operations
-  async batchCompleteRituals(batchData: BatchCompleteRituals): Promise<{
-    completions: any[];
-    total_completed: number;
-  }> {
+  async batchCompleteRituals(
+    batchData: BatchCompleteRituals
+  ): Promise<ApiSuccess<{ completions: any[]; total_completed: number }>> {
     return this.request(`/rituals/batch-complete`, {
       method: "POST",
       body: JSON.stringify(batchData),

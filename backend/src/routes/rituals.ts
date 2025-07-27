@@ -16,7 +16,6 @@ import {
   createQuickStepResponse,
   updateQuickStepResponse,
   batchCompleteRituals,
-  getDailySchedule,
 } from "../controllers/rituals";
 
 const router = Router();

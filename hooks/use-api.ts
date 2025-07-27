@@ -1,24 +1,22 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { api, apiClient } from "@/lib/api";
-import { queryKeys } from "@/lib/query-client";
+import { RitualWithConfig } from "@/backend/src/types/database";
 import { LoginRequest, RegisterRequest } from "@/backend/src/utils/validation";
 import {
-  CreateRitual,
+  BatchCompleteRituals,
   CompleteRitual,
-  UpdateRitual,
-  UpdateRitualCompletion,
+  CreateRitual,
   QuickStepResponse,
   QuickUpdateResponse,
-  BatchCompleteRituals,
+  UpdateRitual,
+  UpdateRitualCompletion,
 } from "@/backend/src/utils/validation-extended";
-import {
-  RitualWithConfig,
-  UserDailySchedule,
-} from "@/backend/src/types/database";
+import { api, apiClient } from "@/lib/api";
+import { queryKeys } from "@/lib/query-client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ApiError } from "next/dist/server/api-utils";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 // Auth Hooks
 export function useCurrentUser() {
@@ -56,8 +54,8 @@ export function useLogin() {
     mutationFn: (credentials: LoginRequest) => api.login(credentials),
     onSuccess: (data) => {
       // Cache user data immediately
-      queryClient.setQueryData(queryKeys.auth.user, data.user);
-      toast.success(`Welcome back, ${data.user.email}!`);
+      queryClient.setQueryData(queryKeys.auth.user, data.data.user);
+      toast.success(`Welcome back, ${data.data.user.email}!`);
       router.push("/");
     },
     onError: (error: any) => {
@@ -74,12 +72,12 @@ export function useRegister() {
     mutationFn: (credentials: RegisterRequest) => api.register(credentials),
     onSuccess: (data) => {
       // Cache user data immediately
-      queryClient.setQueryData(queryKeys.auth.user, data.user);
-      toast.success(`Welcome to Rituals, ${data.user.email}!`);
+      queryClient.setQueryData(queryKeys.auth.user, data.data.user);
+      toast.success(`Welcome to Rituals, ${data.data.user.email}!`);
       router.push("/");
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Registration failed");
+    onError: (error: ApiError) => {
+      toast.error(error.message);
     },
   });
 }
@@ -168,9 +166,12 @@ export function useCreateRitual() {
       queryClient.invalidateQueries({ queryKey: queryKeys.rituals.user() });
 
       // Add to cache optimistically
-      queryClient.setQueryData(queryKeys.rituals.byId(newRitual.id), newRitual);
+      queryClient.setQueryData(
+        queryKeys.rituals.byId(newRitual.data.id),
+        newRitual.data
+      );
 
-      toast.success(`"${newRitual.name}" created successfully!`);
+      toast.success(`"${newRitual.data.name}" created successfully!`);
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to create ritual");
@@ -216,12 +217,12 @@ export function useUpdateRitual() {
     onSuccess: (updatedRitual) => {
       // Update cache with server response
       queryClient.setQueryData(
-        queryKeys.rituals.byId(updatedRitual.id),
-        updatedRitual
+        queryKeys.rituals.byId(updatedRitual.data.id),
+        updatedRitual.data
       );
       // Invalidate user rituals list
       queryClient.invalidateQueries({ queryKey: queryKeys.rituals.user() });
-      toast.success(`"${updatedRitual.name}" updated successfully!`);
+      toast.success(`"${updatedRitual.data.name}" updated successfully!`);
     },
   });
 }
@@ -369,7 +370,7 @@ export function useForkRitual() {
         }
       );
 
-      toast.success(`"${forkedRitual.name}" forked to your library!`);
+      toast.success(`"${forkedRitual.data.name}" forked to your library!`);
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to fork ritual");
@@ -388,14 +389,16 @@ export function usePublishRitual() {
 
       // Update in individual cache
       queryClient.setQueryData(
-        queryKeys.rituals.byId(publishedRitual.id),
-        publishedRitual
+        queryKeys.rituals.byId(publishedRitual.data.id),
+        publishedRitual.data
       );
 
       // Invalidate public rituals to show the newly published ritual
       queryClient.invalidateQueries({ queryKey: queryKeys.rituals.public() });
 
-      toast.success(`"${publishedRitual.name}" published to public library!`);
+      toast.success(
+        `"${publishedRitual.data.name}" published to public library!`
+      );
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to publish ritual");
@@ -414,8 +417,8 @@ export function useUnpublishRitual() {
 
       // Update in individual cache
       queryClient.setQueryData(
-        queryKeys.rituals.byId(unpublishedRitual.id),
-        unpublishedRitual
+        queryKeys.rituals.byId(unpublishedRitual.data.id),
+        unpublishedRitual.data
       );
 
       // Remove from public rituals cache
@@ -424,14 +427,15 @@ export function useUnpublishRitual() {
         return {
           ...old,
           rituals: old.rituals.filter(
-            (ritual: RitualWithConfig) => ritual.id !== unpublishedRitual.id
+            (ritual: RitualWithConfig) =>
+              ritual.id !== unpublishedRitual.data.id
           ),
           total: old.total - 1,
         };
       });
 
       toast.success(
-        `"${unpublishedRitual.name}" unpublished from public library`
+        `"${unpublishedRitual.data.name}" unpublished from public library`
       );
     },
     onError: (error: any) => {
@@ -516,7 +520,7 @@ export function useBatchCompleteRituals() {
       });
 
       toast.success(
-        `🎉 ${result.total_completed} rituals completed successfully!`
+        `🎉 ${result.data.total_completed} rituals completed successfully!`
       );
     },
     onError: (error: any) => {

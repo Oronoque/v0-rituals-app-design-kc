@@ -19,15 +19,20 @@ export interface ValidationResult {
   errors: ValidationErrorDetail[];
 }
 
-export class ValidationError extends Error {
-  public details: ValidationErrorDetail[];
-
-  constructor(errors: ValidationErrorDetail[]) {
-    super("Validation failed");
-    this.name = "ValidationError";
-    this.details = errors;
-  }
-}
+// convert zod error to ValidationErrorDetail
+export const convertZodErrorToValidationErrorDetail = (
+  error: z.ZodError
+): ValidationErrorDetail[] => {
+  const details: ValidationErrorDetail[] = [];
+  error.errors.forEach((err) => {
+    details.push({
+      field: err.path.join("."),
+      message: err.message,
+      code: err.code,
+    });
+  });
+  return details;
+};
 
 // ===========================================
 // AUTH SCHEMAS (EXISTING)
