@@ -1,14 +1,10 @@
 {
   "compilerOptions": {
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "ES6"],
     "allowJs": true,
-    "target": "ES6",
     "skipLibCheck": true,
-    "strictNullChecks": true,
+    "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -17,25 +13,25 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
-    },
-    "strict": false
+      "@rituals/shared": ["./packages/shared/src"],
+      "@rituals/shared/*": ["./packages/shared/src/*"]
+    }
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts"
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/backend" },
+    { "path": "./packages/frontend" },
+    { "path": "./packages/database" }
   ],
+  "include": [],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "dist",
+    ".next",
+    "packages/*/node_modules",
+    "packages/*/dist",
+    "packages/*/.next"
   ]
 }
