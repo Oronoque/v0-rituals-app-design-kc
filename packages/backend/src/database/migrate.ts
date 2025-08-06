@@ -1,26 +1,17 @@
+import dotenv from "dotenv";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { Pool } from "pg";
-import dotenv from "dotenv";
+import { pool } from "./connection";
 
 // Load environment variables
 dotenv.config();
 
 async function runMigrations() {
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    host: process.env.DATABASE_HOST,
-    port: parseInt(process.env.DATABASE_PORT || "5432"),
-    database: process.env.DATABASE_NAME,
-    user: process.env.DATABASE_USER,
-    password: process.env.DATABASE_PASSWORD,
-  });
-
   try {
     console.log("🔄 Running database migrations...");
 
     // Read schema file
-    const schemaPath = join(__dirname, "../../database/schema.sql");
+    const schemaPath = join(__dirname, "./schema.sql");
     const schema = readFileSync(schemaPath, "utf8");
 
     // Execute schema

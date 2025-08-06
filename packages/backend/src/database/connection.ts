@@ -1,52 +1,87 @@
-import { Kysely, PostgresDialect } from "kysely";
-import { Pool } from "pg";
-import dotenv from "dotenv";
 import { Database } from "@rituals/shared";
+import dotenv from "dotenv";
+import { Kysely, PostgresDialect } from "kysely";
+import { Pool, PoolConfig, types } from "pg";
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: ".env" });
 
-// Create PostgreSQL connection pool
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  host: process.env.DATABASE_HOST,
-  port: parseInt(process.env.DATABASE_PORT || "5432"),
-  database: process.env.DATABASE_NAME,
-  user: process.env.DATABASE_USER,
-  password: process.env.DATABASE_PASSWORD,
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+// Configure pg types
+types.setTypeParser(types.builtins.INT8, (val) => BigInt(val));
+types.setTypeParser(types.builtins.INT4, (val) => BigInt(val));
 
-// Create Kysely database instance
-export const db = new Kysely<Database>({
-  dialect: new PostgresDialect({
-    pool: pool,
-  }),
-});
+class DatabaseManager {
+  private static instance: Kysely<Database>;
+  private static poolInstance: Pool;
 
-// Test database connection using raw pool
-export async function testConnection(): Promise<boolean> {
-  try {
-    const client = await pool.connect();
-    await client.query("SELECT 1");
-    client.release();
-    console.log("✅ Database connection successful");
-    return true;
-  } catch (error) {
-    console.error("❌ Database connection failed:", error);
-    return false;
+  private constructor() {}
+
+  public static getInstance(): Kysely<Database> {
+    if (!DatabaseManager.instance) {
+      const config: PoolConfig = {
+        connectionString: process.env.DATABASE_URL,
+      };
+
+      // Override SSL config for production
+      if (process.env.NODE_ENV === "production") {
+        config.ssl = {
+          rejectUnauthorized: false,
+        };
+      }
+
+      DatabaseManager.poolInstance = new Pool(config);
+
+      DatabaseManager.instance = new Kysely<Database>({
+        dialect: new PostgresDialect({
+          pool: DatabaseManager.poolInstance,
+        }),
+      });
+    }
+    return DatabaseManager.instance;
+  }
+
+  public static getPool(): Pool {
+    if (!DatabaseManager.poolInstance) {
+      DatabaseManager.getInstance(); // This will initialize the pool
+    }
+    return DatabaseManager.poolInstance;
+  }
+
+  public static async testConnection(): Promise<boolean> {
+    try {
+      const pool = DatabaseManager.getPool();
+      const client = await pool.connect();
+      await client.query("SELECT 1");
+      client.release();
+      console.log("✅ Database connection successful");
+      return true;
+    } catch (error) {
+      console.error("❌ Database connection failed:", error);
+      return false;
+    }
+  }
+
+  public static async closeConnection(): Promise<void> {
+    try {
+      if (DatabaseManager.instance) {
+        await DatabaseManager.instance.destroy();
+      }
+      if (DatabaseManager.poolInstance) {
+        await DatabaseManager.poolInstance.end();
+      }
+      console.log("✅ Database connection closed");
+    } catch (error) {
+      console.error("❌ Error closing database connection:", error);
+    }
   }
 }
 
-// Graceful shutdown
-export async function closeConnection(): Promise<void> {
-  try {
-    await db.destroy();
-    await pool.end();
-    console.log("✅ Database connection closed");
-  } catch (error) {
-    console.error("❌ Error closing database connection:", error);
-  }
-}
+// Export singleton instances
+export const db = DatabaseManager.getInstance();
+export const pool = DatabaseManager.getPool();
+
+// Export functions for backward compatibility
+export const testConnection =
+  DatabaseManager.testConnection.bind(DatabaseManager);
+export const closeConnection =
+  DatabaseManager.closeConnection.bind(DatabaseManager);
