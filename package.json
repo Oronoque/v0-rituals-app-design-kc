@@ -10,6 +10,8 @@
     "build:shared": "bun --filter @rituals/shared build",
     "build:backend": "bun --filter @rituals/backend build",
     "build:frontend": "bun --filter @rituals/frontend build",
+    "start:backend": "bun --filter @rituals/backend start",
+    "start:frontend": "bun --filter @rituals/frontend start",
     "dev": "bunx concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
     "dev:shared": "bun --filter @rituals/shared dev",
     "dev:backend": "bun --filter @rituals/backend dev",

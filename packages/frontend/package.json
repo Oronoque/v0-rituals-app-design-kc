@@ -6,7 +6,7 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start",
+    "start": "bun .next/standalone/packages/frontend/server.js",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf .next"
   },

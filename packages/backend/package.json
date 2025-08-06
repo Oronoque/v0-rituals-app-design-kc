@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target node",
-    "start": "bun dist/index.js",
+    "build": "bun build --compile --minify --sourcemap src/index.ts --outfile dist/server",
+    "start": "dist/server",
     "db:migrate": "bun run src/database/migrate.ts",
     "db:seed": "bun run src/database/seed.ts",
     "db:reset": "bun run src/database/reset.ts",
