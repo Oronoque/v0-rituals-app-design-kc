@@ -1,25 +1,25 @@
-import express from "express";
-import cors from "cors";
-import helmet from "helmet";
 import compression from "compression";
+import cors from "cors";
 import dotenv from "dotenv";
+import express from "express";
+import helmet from "helmet";
 
 // Import routes
 import authRoutes from "./routes/auth";
-import ritualRoutes from "./routes/rituals";
 import dailyRitualRoutes from "./routes/daily-rituals";
+import ritualRoutes from "./routes/rituals";
 
 // Import middleware
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 
 // Import database
-import { testConnection, closeConnection } from "./database/connection";
+import { closeConnection, testConnection } from "./database/connection";
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.API_PORT || 3001;
 
 // Extend Express Request type to include user
 declare global {
