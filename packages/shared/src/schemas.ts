@@ -208,9 +208,14 @@ export const scaleStepConfigSchema = z
     scale_min: z.number(),
     scale_max: z.number(),
   })
-  .refine((data) => data.scale_max > data.scale_min, {
-    message: "Scale max must be greater than scale min",
-  });
+  .refine(
+    function refineScaleStepConfig(data) {
+      return data.scale_max > data.scale_min;
+    },
+    {
+      message: "Scale max must be greater than scale min",
+    }
+  );
 
 export const timerStepConfigSchema = z.object({
   question: z.string().min(1, "Question is required"),
@@ -319,7 +324,9 @@ export const stepResponseSchema = z
       value: exerciseSetStepResponseSchema,
     }),
   ])
-  .transform((data) => data.value);
+  .transform(function transformStepResponse(data) {
+    return data.value;
+  });
 
 // ===========================================
 // STEP DEFINITION SCHEMAS
@@ -341,7 +348,9 @@ export const stepDefinitionSchema = z.object({
         config: exerciseSetStepConfigSchema,
       }),
     ])
-    .transform((data) => data.config),
+    .transform(function transformStepDefinition(data) {
+      return data.config;
+    }),
   is_required: z.boolean(),
 });
 
@@ -366,7 +375,7 @@ export const ritualFrequencySchema = z
       .nullable(),
   })
   .refine(
-    (data) => {
+    function refineRitualFrequency(data) {
       if (
         data.frequency_type === "weekly" &&
         (!data.days_of_week || data.days_of_week.length === 0)

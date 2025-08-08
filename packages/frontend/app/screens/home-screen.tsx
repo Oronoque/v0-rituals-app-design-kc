@@ -1,9 +1,4 @@
 "use client";
-import {
-  RitualCompletionWithSteps,
-  RitualWithConfig,
-} from "@rituals/shared";
-import { CompleteRitual } from "@rituals/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +8,11 @@ import {
   useDailySchedule,
   useDeleteRitual,
 } from "@/hooks/use-api";
+import {
+  CompleteRitual,
+  RitualCompletionWithSteps,
+  RitualWithConfig,
+} from "@rituals/shared";
 import {
   Calendar,
   CheckCircle,
@@ -48,6 +48,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
 
   // Fetch user and daily schedule
   const { data: user } = useCurrentUser();
+  console.log("user data", user);
   const { data: schedule, isLoading, error, refetch } = useDailySchedule(today);
   const completeRitualMutation = useCompleteRitual();
   const deleteRitualMutation = useDeleteRitual();

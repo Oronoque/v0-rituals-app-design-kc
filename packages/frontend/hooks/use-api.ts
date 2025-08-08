@@ -1,18 +1,19 @@
 "use client";
 
-import { RitualWithConfig } from "@rituals/shared";
-import { LoginRequest, RegisterRequest } from "@rituals/shared";
+import { api, apiClient } from "@/lib/api";
+import { queryKeys } from "@/lib/query-client";
 import {
   BatchCompleteRituals,
   CompleteRitual,
   CreateRitual,
+  LoginRequest,
   QuickStepResponse,
   QuickUpdateResponse,
+  RegisterRequest,
+  RitualWithConfig,
   UpdateRitual,
   UpdateRitualCompletion,
 } from "@rituals/shared";
-import { api, apiClient } from "@/lib/api";
-import { queryKeys } from "@/lib/query-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "next/dist/server/api-utils";
 import { useRouter } from "next/navigation";
@@ -54,7 +55,7 @@ export function useLogin() {
     mutationFn: (credentials: LoginRequest) => api.login(credentials),
     onSuccess: (data) => {
       // Cache user data immediately
-      queryClient.setQueryData(queryKeys.auth.user, data.data.user);
+      queryClient.setQueryData(queryKeys.auth.user, data);
       toast.success(`Welcome back, ${data.data.user.email}!`);
       router.push("/");
     },
@@ -72,7 +73,7 @@ export function useRegister() {
     mutationFn: (credentials: RegisterRequest) => api.register(credentials),
     onSuccess: (data) => {
       // Cache user data immediately
-      queryClient.setQueryData(queryKeys.auth.user, data.data.user);
+      queryClient.setQueryData(queryKeys.auth.user, data);
       toast.success(`Welcome to Rituals, ${data.data.user.email}!`);
       router.push("/");
     },

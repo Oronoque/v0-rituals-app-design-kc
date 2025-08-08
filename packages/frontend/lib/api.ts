@@ -18,7 +18,10 @@ import {
 } from "@rituals/shared";
 
 // API Client for Rituals Backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  process.env.API_URL ??
+  "http://localhost:3001/api";
 
 // API Client Class
 export class ApiClient {
@@ -29,7 +32,7 @@ export class ApiClient {
     this.baseUrl = baseUrl;
     // Load token from localStorage on client side
     if (typeof window !== "undefined") {
-      this.token = localStorage.getItem("rituals_token");
+      this.token = localStorage.getItem("token");
     }
   }
 
@@ -56,6 +59,7 @@ export class ApiClient {
       if (apiResponse.success === false) {
         throw apiResponse;
       }
+      console.log("apiResponse", apiResponse);
 
       return apiResponse;
     } catch (error) {
@@ -72,7 +76,7 @@ export class ApiClient {
 
     this.token = response.data.token;
     if (typeof window !== "undefined") {
-      localStorage.setItem("rituals_token", response.data.token);
+      localStorage.setItem("token", response.data.token);
     }
 
     return response;
@@ -88,7 +92,7 @@ export class ApiClient {
 
     this.token = response.data.token;
     if (typeof window !== "undefined") {
-      localStorage.setItem("rituals_token", response.data.token);
+      localStorage.setItem("token", response.data.token);
     }
 
     return response;
@@ -112,7 +116,7 @@ export class ApiClient {
   logout(): void {
     this.token = null;
     if (typeof window !== "undefined") {
-      localStorage.removeItem("rituals_token");
+      localStorage.removeItem("token");
     }
   }
 
@@ -283,7 +287,7 @@ export class ApiClient {
   setToken(token: string): void {
     this.token = token;
     if (typeof window !== "undefined") {
-      localStorage.setItem("rituals_token", token);
+      localStorage.setItem("token", token);
     }
   }
 }

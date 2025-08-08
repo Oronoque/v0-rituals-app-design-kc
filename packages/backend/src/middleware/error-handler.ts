@@ -24,26 +24,43 @@ export function errorHandler(
 
   // Handle application errors
   if (error instanceof ApiError) {
-    res.json(error.neverThrow());
+    const response = error.neverThrow();
+    res.json({
+      ...response,
+      success: false,
+    });
     return;
   }
 
   // Handle validation errors
   if (error instanceof ZodError) {
-    res.json(
-      new ValidationError(convertZodErrorToValidationErrorDetail(error))
-    );
+    const response = new ValidationError(
+      convertZodErrorToValidationErrorDetail(error),
+      error
+    ).neverThrow();
+    res.json({
+      ...response,
+      success: false,
+    });
     return;
   }
 
   // Handle JWT errors
   if (error.name === "JsonWebTokenError") {
-    res.status(401).json(new UnauthorizedError("Invalid token").neverThrow());
+    const response = new UnauthorizedError("Invalid token", error).neverThrow();
+    res.status(401).json({
+      ...response,
+      success: false,
+    });
     return;
   }
 
   if (error.name === "TokenExpiredError") {
-    res.status(401).json(new UnauthorizedError("Token expired").neverThrow());
+    const response = new UnauthorizedError("Token expired", error).neverThrow();
+    res.status(401).json({
+      ...response,
+      success: false,
+    });
     return;
   }
 
@@ -51,19 +68,33 @@ export function errorHandler(
   if (
     error.message.includes("duplicate key value violates unique constraint")
   ) {
-    res.json(new ApiError("Resource already exists", 409).neverThrow());
+    const response = new ApiError(
+      "Resource already exists",
+      409,
+      error
+    ).neverThrow();
+    res.json({
+      ...response,
+      success: false,
+    });
     return;
   }
 
   if (error.message.includes("foreign key constraint")) {
-    res.json(
-      new ApiError("Referenced resource does not exist", 400).neverThrow()
-    );
+    const response = new ApiError(
+      "Referenced resource does not exist",
+      400,
+      error
+    ).neverThrow();
+    res.json({
+      ...response,
+      success: false,
+    });
     return;
   }
 
   // Default internal server error
-  res.status(500).json(new InternalError(error.message).neverThrow());
+  res.status(500).json(new InternalError(error.message, error).neverThrow());
 }
 
 // 404 handler for undefined routes
@@ -84,12 +115,16 @@ export type Handler<T> = (
   res: SafeResponse,
   next: NextFunction
 ) => Promise<ApiResult<T>>;
-
 export function asyncHandler<T>(fn: Handler<T>) {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async function withResultHandler(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     try {
       const result = await fn(req, res, next);
       if (result.isOk()) {
+        console.log("result", result.value);
         res.status(result.value.status_code).json({
           ...result.value,
           success: true,

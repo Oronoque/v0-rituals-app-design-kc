@@ -5,9 +5,11 @@ import {
   AuthResponse,
   LoginRequest,
   RegisterRequest,
+  RitualCategory,
   UpdateUserRequest,
   User,
   UserProfileResponse,
+  UserProgress,
   UserRole,
 } from "@rituals/shared";
 import bcrypt from "bcrypt";
@@ -22,8 +24,14 @@ export class AuthService {
   private readonly SALT_ROUNDS = 12;
 
   constructor(private pool: Pool) {
-    this.JWT_SECRET = process.env.JWT_SECRET || "your-super-secret-jwt-key";
-    this.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET environment variable is not set");
+    }
+    if (!process.env.JWT_EXPIRES_IN) {
+      throw new Error("JWT_EXPIRES_IN environment variable is not set");
+    }
+    this.JWT_SECRET = process.env.JWT_SECRET;
+    this.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN;
   }
 
   // ===========================================
@@ -76,8 +84,8 @@ export class AuthService {
       await client.query("COMMIT");
 
       // Generate JWT token
-      const token = this.generateToken(user.id, user.email);
-      let result = {
+      const token = this.generateToken(user.id, user.email, user.role);
+      const result = {
         user: this.sanitizeUser(user),
         token,
       };
@@ -114,7 +122,7 @@ export class AuthService {
     }
 
     // Generate JWT token
-    const token = this.generateToken(user.id, user.email);
+    const token = this.generateToken(user.id, user.email, user.role);
 
     return {
       user: this.sanitizeUser(user),
@@ -135,7 +143,7 @@ export class AuthService {
 
       return userResult.rows[0] as User;
     } catch (error) {
-      throw new Error("Invalid or expired token");
+      throw new Error("Invalid or expired token", { cause: error });
     }
   }
 
@@ -176,14 +184,14 @@ export class AuthService {
 
     const totalCompletions = Number(completionsCount?.total || 0);
 
-    const progress = {
+    const progress: UserProgress = {
       user_id: userId,
       current_streak: user.current_streak,
       total_completions: totalCompletions,
       completion_rate: 100, // Always 100% since we only store completed rituals
       favorite_categories: favoriteCategories
         .map((cat) => cat.category)
-        .filter(Boolean) as any[],
+        .filter(Boolean) as RitualCategory[],
     };
 
     return {
@@ -197,7 +205,7 @@ export class AuthService {
     data: UpdateUserRequest
   ): Promise<User> {
     const updateFields: string[] = [];
-    const updateValues: any[] = [];
+    const updateValues: unknown[] = [];
     let paramIndex = 1;
 
     if (data.first_name !== undefined) {
@@ -294,23 +302,34 @@ export class AuthService {
   // UTILITY METHODS
   // ===========================================
 
-  private generateToken(userId: string, email: string): string {
+  private generateToken(userId: string, email: string, role: UserRole): string {
     // JWT payload matching what the middleware expects
     return jwt.sign(
       {
+        userId,
+        role,
         sub: userId,
         email: email,
       },
       this.JWT_SECRET,
       {
         expiresIn: this.JWT_EXPIRES_IN,
-      } as any
+      } as jwt.SignOptions
     );
   }
 
   private sanitizeUser(user: User): Omit<User, "password_hash"> {
-    const { password_hash, ...sanitizedUser } = user;
-    return sanitizedUser;
+    return {
+      created_at: user.created_at,
+      current_streak: user.current_streak,
+      email: user.email,
+      first_name: user.first_name,
+      id: user.id,
+      last_name: user.last_name,
+      role: user.role,
+      timezone: user.timezone,
+      updated_at: user.updated_at,
+    };
   }
 
   async getUserById(userId: string): Promise<User | null> {

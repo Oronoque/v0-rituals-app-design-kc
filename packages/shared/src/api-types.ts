@@ -4,32 +4,33 @@
 
 import { err, Result } from "neverthrow";
 import { User, UserProgress } from "./database-types";
+import { requestContext } from "./request-id";
 import { ValidationErrorDetail } from "./utils";
 
 export class ApiError extends Error {
-  name: string;
   success: false;
   status_message: string;
-  message: string;
   status_code: number;
-  request_id: string | undefined;
+  request_id: string;
 
-  constructor(message: string, status_code: number, request_id?: string) {
-    super(message);
-    this.message = message;
+  constructor(message: string, status_code: number, cause?: unknown) {
+    super(message, { cause });
+    this.name = this.constructor.name;
     this.status_message = getErrorCode(status_code);
     this.status_code = status_code;
-    this.request_id = request_id;
-    this.name = "ApiError";
+    this.request_id = requestContext.requestId;
     this.success = false;
-    Object.setPrototypeOf(this, new.target.prototype);
 
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, this.constructor);
-    }
-
-    if (status_code >= 500) {
-      console.error(this);
+    // Filter stack to only include lines from our workspaces
+    if (this.stack) {
+      this.stack = this.stack
+        .split("\n")
+        .filter(
+          (line) =>
+            line.includes("packages/frontend") ||
+            line.includes("packages/backend")
+        )
+        .join("\n");
     }
   }
 
@@ -39,86 +40,100 @@ export class ApiError extends Error {
 
   static parse(error: ApiError): ApiError {
     switch (error.name) {
-      case "ApiError":
-        return new ApiError(error.message, error.status_code, error.request_id);
       case "InternalError":
-        return new InternalError(error.message, error.request_id);
+        return new InternalError(error.message, error.cause);
       case "NotFoundError":
-        return new NotFoundError(error.message, error.request_id);
+        return new NotFoundError(error.message, error.cause);
       case "BadRequestError":
-        return new BadRequestError(error.message, error.request_id);
+        return new BadRequestError(error.message, error.cause);
       case "UnprocessableEntityError":
-        return new UnprocessableEntityError(error.message, error.request_id);
+        return new UnprocessableEntityError(error.message, error.cause);
       case "TooManyRequestsError":
-        return new TooManyRequestsError(error.message, error.request_id);
+        return new TooManyRequestsError(error.message, error.cause);
       case "UnauthorizedError":
-        return new UnauthorizedError(error.message, error.request_id);
+        return new UnauthorizedError(error.message, error.cause);
       case "ValidationError":
         return new ValidationError(
           (error as ValidationError).validation_errors,
-          error.request_id
+          error.cause
         );
       case "ForbiddenError":
-        return new ForbiddenError(error.message, error.request_id);
+        return new ForbiddenError(error.message, error.cause);
+      case "ConflictError":
+        return new ConflictError(error.message, error.cause);
       default:
-        return new ApiError(error.message, error.status_code, error.request_id);
+        return new ApiError(error.message, error.status_code, error.cause);
     }
   }
-}
 
+  protected printError(message: string) {
+    const separator = `=== [${message}] ===`;
+    console.error(separator);
+    console.error(this);
+    console.error("=== END ERROR BLOCK ===\n");
+  }
+}
 export class InternalError extends ApiError {
-  constructor(message = "Internal server error", request_id?: string) {
-    super(message, 500, request_id);
+  constructor(message = "Internal server error", cause?: unknown) {
+    super(message, 500, cause);
+    this.printError("INTERNAL ERROR");
   }
 }
 
 export class NotFoundError extends ApiError {
-  constructor(message = "Resource not found", request_id?: string) {
-    super(message, 404, request_id);
+  constructor(message = "Resource not found", cause?: unknown) {
+    super(message, 404, cause);
+    this.printError("NOT FOUND");
   }
 }
 
 export class BadRequestError extends ApiError {
-  constructor(message = "Bad request", request_id?: string) {
-    super(message, 400, request_id);
+  constructor(message = "Bad request", cause?: unknown) {
+    super(message, 400, cause);
+    this.printError("BAD REQUEST");
   }
 }
 
 export class UnprocessableEntityError extends ApiError {
-  constructor(message = "Unprocessable entity", request_id?: string) {
-    super(message, 422, request_id);
+  constructor(message = "Unprocessable entity", cause?: unknown) {
+    super(message, 422, cause);
+    this.printError("UNPROCESSABLE ENTITY");
   }
 }
 
 export class TooManyRequestsError extends ApiError {
-  constructor(message = "Too many requests", request_id?: string) {
-    super(message, 429, request_id);
+  constructor(message = "Too many requests", cause?: unknown) {
+    super(message, 429, cause);
+    this.printError("TOO MANY REQUESTS");
   }
 }
 
 export class UnauthorizedError extends ApiError {
-  constructor(message = "Unauthorized", request_id?: string) {
-    super(message, 401, request_id);
+  constructor(message = "Unauthorized", cause?: unknown) {
+    super(message, 401, cause);
   }
 }
 
 export class ValidationError extends ApiError {
   validation_errors: ValidationErrorDetail[];
-  constructor(validation_errors: ValidationErrorDetail[], request_id?: string) {
-    super("Validation failed", 400, request_id);
+  constructor(validation_errors: ValidationErrorDetail[], cause?: unknown) {
+    super("Validation failed", 400, cause);
     this.validation_errors = validation_errors;
+    this.printError("VALIDATION ERROR");
   }
 }
 
 export class ForbiddenError extends ApiError {
-  constructor(message: string = "Forbidden", request_id?: string) {
-    super(message, 403, request_id);
+  constructor(message = "Forbidden", cause?: unknown) {
+    super(message, 403, cause);
+    this.printError("FORBIDDEN");
   }
 }
 
 export class ConflictError extends ApiError {
-  constructor(message: string, request_id?: string) {
-    super(message, 409, request_id);
+  constructor(message: string, cause?: unknown) {
+    super(message, 409, cause);
+    this.printError("CONFLICT");
   }
 }
 
@@ -203,14 +218,4 @@ export interface UsersResponse {
   limit: number;
   offset: number;
   total_pages: number;
-}
-
-// ===========================================
-// ERROR TYPES
-// ===========================================
-
-export interface ValidationError {
-  field: string;
-  message: string;
-  code: string;
 }

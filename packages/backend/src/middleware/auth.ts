@@ -1,9 +1,10 @@
-import { UnauthorizedError } from "@rituals/shared";
+import { UnauthorizedError, UserRole } from "@rituals/shared";
 import { NextFunction, Request, Response } from "express";
-import jwt, { SignOptions } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 
 interface JwtPayload {
   userId: string;
+  role: UserRole;
   sub: string;
   email: string;
   iat: number;
@@ -41,6 +42,7 @@ export function requireAuth(
     const payload = jwt.verify(token, jwtSecret) as JwtPayload;
     // Add user ID to request
     req.userId = payload.sub;
+    req.role = payload.role;
 
     next();
   } catch (error) {
@@ -54,83 +56,41 @@ export function requireAuth(
   }
 }
 
-/**
- * Middleware for optional authentication (doesn't throw if no token)
- */
-export function optionalAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
-  try {
-    const authorization = req.headers.authorization;
+// /**
+//  * Middleware for optional authentication (doesn't throw if no token)
+//  */
+// export function optionalAuth(
+//   req: Request,
+//   res: Response,
+//   next: NextFunction
+// ): void {
+//   try {
+//     const authorization = req.headers.authorization;
 
-    if (!authorization || !authorization.startsWith("Bearer ")) {
-      return next(); // Continue without authentication
-    }
+//     if (!authorization || !authorization.startsWith("Bearer ")) {
+//       return next(); // Continue without authentication
+//     }
 
-    const token = authorization.slice(7);
+//     const token = authorization.slice(7);
 
-    if (!token) {
-      return next(); // Continue without authentication
-    }
+//     if (!token) {
+//       return next(); // Continue without authentication
+//     }
 
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      throw new Error("JWT_SECRET environment variable is not set");
-    }
+//     const jwtSecret = process.env.JWT_SECRET;
+//     if (!jwtSecret) {
+//       throw new Error("JWT_SECRET environment variable is not set");
+//     }
 
-    const payload = jwt.verify(token, jwtSecret) as JwtPayload;
-    req.userId = payload.sub;
+//     const payload = jwt.verify(token, jwtSecret) as JwtPayload;
+//     req.userId = payload.sub;
 
-    next();
-  } catch (error) {
-    // For optional auth, continue even if token is invalid
-    next();
-  }
-}
-
-/**
- * Generate JWT token for user
- */
-export function generateToken(userId: string, email: string): string {
-  const jwtSecret = process.env.JWT_SECRET;
-  const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "7d";
-
-  if (!jwtSecret) {
-    throw new Error("JWT_SECRET environment variable is not set");
-  }
-
-  const options = {
-    expiresIn: jwtExpiresIn,
-  } as SignOptions;
-
-  return jwt.sign(
-    {
-      userId,
-      sub: userId,
-      email: email,
-    },
-    jwtSecret,
-    options
-  );
-}
-
-/**
- * Verify and decode JWT token without throwing errors
- */
-export function verifyToken(token: string): JwtPayload | null {
-  try {
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      return null;
-    }
-
-    return jwt.verify(token, jwtSecret) as JwtPayload;
-  } catch (error) {
-    return null;
-  }
-}
+//     next();
+//   } catch (error) {
+//     // For optional auth, continue even if token is invalid
+//     next();
+//   }
+// }
 
 /**
  * Middleware to require admin role (must be used after requireAuth)
@@ -141,13 +101,13 @@ export function requireAdmin(
   next: NextFunction
 ): void {
   // This middleware assumes the user object is attached by the auth service
-  const user = (req as any).user;
+  const { userId, role } = req;
 
-  if (!user) {
+  if (!userId) {
     throw new UnauthorizedError("Authentication required");
   }
 
-  if (user.role !== "admin") {
+  if (role !== "admin") {
     res.status(403).json({
       success: false,
       error: "Forbidden",

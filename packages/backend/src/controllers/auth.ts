@@ -16,7 +16,7 @@ import {
 import { Request } from "express";
 import { ok } from "neverthrow";
 import { pool } from "../database/connection";
-import { asyncHandler, SafeResponse } from "../middleware/error-handler";
+import { asyncHandler } from "../middleware/error-handler";
 import { AuthService } from "../services/auth.service";
 
 const authService = new AuthService(pool);
@@ -25,43 +25,43 @@ const authService = new AuthService(pool);
 // AUTHENTICATION ENDPOINTS
 // ===========================================
 
-export const register = asyncHandler(
-  async (req: Request, res: SafeResponse) => {
-    try {
-      // Validate request data
-      const validation = registerSchema.safeParse(req.body);
-      if (!validation.success) {
-        return new ValidationError(
-          convertZodErrorToValidationErrorDetail(validation.error)
-        ).neverThrow();
-      }
-      const result = await authService.register(validation.data);
-
-      return ok({
-        data: result,
-        message: "User registered successfully",
-        status_code: 201,
-        success: true,
-      });
-    } catch (error) {
-      // Handle specific error types
-      if (error instanceof Error && error.message.includes("already exists")) {
-        return new ConflictError("User already exists").neverThrow();
-      } else {
-        throw error;
-      }
-    }
-  }
-);
-
-export const login = asyncHandler(async (req: Request, res: SafeResponse) => {
+export const register = asyncHandler(async function registerHandler(
+  req: Request
+) {
   try {
     // Validate request data
-    const validation = loginSchema.safeParse(req.body);
+    const validation = registerSchema.safeParse(req.body);
     if (!validation.success) {
       return new ValidationError(
         convertZodErrorToValidationErrorDetail(validation.error)
       ).neverThrow();
+    }
+    const result = await authService.register(validation.data);
+
+    return ok({
+      data: result,
+      message: "User registered successfully",
+      status_code: 201,
+      success: true,
+    });
+  } catch (error) {
+    // Handle specific error types
+    if (error instanceof Error && error.message.includes("already exists")) {
+      return new ConflictError("User already exists").neverThrow();
+    } else {
+      throw error;
+    }
+  }
+});
+
+export const login = asyncHandler(async function loginHandler(req: Request) {
+  try {
+    // Validate request data
+    const validation = loginSchema.safeParse(req.body);
+    if (!validation.success) {
+      throw new ValidationError(
+        convertZodErrorToValidationErrorDetail(validation.error)
+      );
     }
     const result = await authService.login(validation.data);
 
@@ -74,131 +74,131 @@ export const login = asyncHandler(async (req: Request, res: SafeResponse) => {
   } catch (error) {
     // Handle specific error types
     if (error instanceof Error && error.message.includes("incorrect")) {
-      return new UnauthorizedError("Invalid credentials").neverThrow();
+      return new UnauthorizedError("Invalid credentials", error).neverThrow();
     } else {
       throw error;
     }
   }
 });
 
-export const verifyToken = asyncHandler(
-  async (req: Request, res: SafeResponse) => {
-    try {
-      const token = req.headers.authorization?.replace("Bearer ", "");
+export const verifyToken = asyncHandler(async function verifyTokenHandler(
+  req: Request
+) {
+  try {
+    const token = req.headers.authorization?.replace("Bearer ", "");
 
-      if (!token) {
-        return new UnauthorizedError("No token provided").neverThrow();
-      }
+    if (!token) {
+      return new UnauthorizedError("No token provided").neverThrow();
+    }
 
-      const user = await authService.verifyToken(token);
-      const sanitizedUser = {
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        role: user.role,
-        current_streak: user.current_streak,
-        timezone: user.timezone,
-        created_at: user.created_at,
-        updated_at: user.updated_at,
-      };
+    const user = await authService.verifyToken(token);
+    const sanitizedUser = {
+      id: user.id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      role: user.role,
+      current_streak: user.current_streak,
+      timezone: user.timezone,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+    };
 
-      return ok({
-        data: sanitizedUser,
-        message: "Token is valid",
-        status_code: 200,
-        success: true,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("invalid")) {
-        return new UnauthorizedError("Invalid token").neverThrow();
-      } else {
-        throw error;
-      }
+    return ok({
+      data: sanitizedUser,
+      message: "Token is valid",
+      status_code: 200,
+      success: true,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("invalid")) {
+      return new UnauthorizedError("Invalid token", error).neverThrow();
+    } else {
+      throw error;
     }
   }
-);
+});
 
 // ===========================================
 // USER PROFILE ENDPOINTS
 // ===========================================
 
-export const getProfile = asyncHandler(
-  async (req: Request, res: SafeResponse) => {
-    try {
-      const userId = req.userId;
-      if (!userId) {
-        return new UnauthorizedError("User not authenticated").neverThrow();
-      }
+export const getProfile = asyncHandler(async function getProfileHandler(
+  req: Request
+) {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      return new UnauthorizedError("User not authenticated").neverThrow();
+    }
 
-      const userProfile = await authService.getUserProfile(userId);
+    const userProfile = await authService.getUserProfile(userId);
 
-      return ok({
-        data: userProfile,
-        message: "Profile retrieved successfully",
-        status_code: 200,
-        success: true,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("not found")) {
-        return new NotFoundError("User not found").neverThrow();
-      } else {
-        throw error;
-      }
+    return ok({
+      data: userProfile,
+      message: "Profile retrieved successfully",
+      status_code: 200,
+      success: true,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not found")) {
+      return new NotFoundError("User not found", error).neverThrow();
+    } else {
+      throw error;
     }
   }
-);
+});
 
-export const updateProfile = asyncHandler(
-  async (req: Request, res: SafeResponse) => {
-    try {
-      const userId = req.userId;
+export const updateProfile = asyncHandler(async function updateProfileHandler(
+  req: Request
+) {
+  try {
+    const userId = req.userId;
 
-      if (!userId) {
-        return new UnauthorizedError("User not authenticated").neverThrow();
-      }
+    if (!userId) {
+      return new UnauthorizedError("User not authenticated").neverThrow();
+    }
 
-      // Validate request data
-      const validation = updateUserSchema.safeParse(req.body);
-      if (!validation.success) {
-        return new ValidationError(
-          convertZodErrorToValidationErrorDetail(validation.error)
-        ).neverThrow();
-      }
+    // Validate request data
+    const validation = updateUserSchema.safeParse(req.body);
+    if (!validation.success) {
+      return new ValidationError(
+        convertZodErrorToValidationErrorDetail(validation.error)
+      ).neverThrow();
+    }
 
-      const updatedUser = await authService.updateUserProfile(
-        userId,
-        validation.data
-      );
+    const updatedUser = await authService.updateUserProfile(
+      userId,
+      validation.data
+    );
 
-      // Sanitize the response
-      const sanitizedUser = {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        first_name: updatedUser.first_name,
-        last_name: updatedUser.last_name,
-        role: updatedUser.role,
-        current_streak: updatedUser.current_streak,
-        timezone: updatedUser.timezone,
-        created_at: updatedUser.created_at,
-        updated_at: updatedUser.updated_at,
-      };
+    // Sanitize the response
+    const sanitizedUser = {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      first_name: updatedUser.first_name,
+      last_name: updatedUser.last_name,
+      role: updatedUser.role,
+      current_streak: updatedUser.current_streak,
+      timezone: updatedUser.timezone,
+      created_at: updatedUser.created_at,
+      updated_at: updatedUser.updated_at,
+    };
 
-      return ok({
-        data: updatedUser,
-        message: "Profile updated successfully",
-        status_code: 200,
-        success: true,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("not found")) {
-        return new NotFoundError("User not found").neverThrow();
-      } else {
-        throw error;
-      }
+    return ok({
+      data: sanitizedUser,
+      message: "Profile updated successfully",
+      status_code: 200,
+      success: true,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not found")) {
+      return new NotFoundError("User not found", error).neverThrow();
+    } else {
+      throw error;
     }
   }
-);
+});
 
 // export const changePassword = async (
 //   req: Request,
@@ -268,75 +268,75 @@ export const updateProfile = asyncHandler(
 //   }
 // };
 
-export const deleteAccount = asyncHandler(
-  async (req: Request, res: SafeResponse) => {
-    try {
-      const userId = req.userId;
+export const deleteAccount = asyncHandler(async function deleteAccountHandler(
+  req: Request
+) {
+  try {
+    const userId = req.userId;
 
-      if (!userId) {
-        return new UnauthorizedError("User not authenticated").neverThrow();
-      }
+    if (!userId) {
+      return new UnauthorizedError("User not authenticated").neverThrow();
+    }
 
-      const { confirm } = req.body;
+    const { confirm } = req.body;
 
-      if (!confirm) {
-        return new BadRequestError("Confirmation required").neverThrow();
-      }
+    if (!confirm) {
+      return new BadRequestError("Confirmation required").neverThrow();
+    }
 
-      await authService.deleteUser(userId);
+    await authService.deleteUser(userId);
 
-      return ok({
-        message: "Account deleted successfully",
-        data: null,
-        status_code: 200,
-        success: true,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("not found")) {
-        return new NotFoundError("User not found").neverThrow();
-      } else {
-        throw error;
-      }
+    return ok({
+      message: "Account deleted successfully",
+      data: null,
+      status_code: 200,
+      success: true,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not found")) {
+      return new NotFoundError("User not found", error).neverThrow();
+    } else {
+      throw error;
     }
   }
-);
+});
 
 // ===========================================
 // ADMIN ENDPOINTS
 // ===========================================
 
-export const getAllUsers = asyncHandler(
-  async (req: Request, res: SafeResponse) => {
-    try {
-      const userRole = req.userId;
+export const getAllUsers = asyncHandler(async function getAllUsersHandler(
+  req: Request
+) {
+  try {
+    const userRole = req.userId;
 
-      if (userRole !== "admin") {
-        return new ForbiddenError("Admin access required").neverThrow();
-      }
+    if (userRole !== "admin") {
+      return new ForbiddenError("Admin access required").neverThrow();
+    }
 
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
 
-      const result = await authService.getAllUsers(limit, offset);
+    const result = await authService.getAllUsers(limit, offset);
 
-      return ok({
-        data: {
-          users: result.users,
-          total: result.total,
-          limit,
-          offset,
-          total_pages: Math.ceil(result.total / limit),
-        },
-        message: "Users retrieved successfully",
-        status_code: 200,
-        success: true,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("not found")) {
-        return new NotFoundError("User not found").neverThrow();
-      } else {
-        throw error;
-      }
+    return ok({
+      data: {
+        users: result.users,
+        total: result.total,
+        limit,
+        offset,
+        total_pages: Math.ceil(result.total / limit),
+      },
+      message: "Users retrieved successfully",
+      status_code: 200,
+      success: true,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not found")) {
+      return new NotFoundError("User not found", error).neverThrow();
+    } else {
+      throw error;
     }
   }
-);
+});

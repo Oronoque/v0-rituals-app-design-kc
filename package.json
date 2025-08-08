@@ -10,12 +10,13 @@
     "build:shared": "bun --filter @rituals/shared build",
     "build:backend": "bun --filter @rituals/backend build",
     "build:frontend": "bun --filter @rituals/frontend build",
-    "start:backend": "bun --filter @rituals/backend start",
-    "start:frontend": "bun --filter @rituals/frontend start",
-    "dev": "bunx concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
-    "dev:shared": "bun --filter @rituals/shared dev",
-    "dev:backend": "bun --filter @rituals/backend dev",
-    "dev:frontend": "bun --filter @rituals/frontend dev"
+    "start:backend": "dotenv -e .env -- bun run --elide-lines 0 --filter @rituals/backend start",
+    "start:frontend": "dotenv -e .env -- bun run --elide-lines 0 --filter @rituals/frontend start",
+    "start": "dotenv -e .env -- bunx concurrently  \"bun run start:backend\" \"bun run start:frontend\"",
+    "dev:shared": "dotenv -e .env -- bun run --filter=@rituals/shared dev ",
+    "dev:backend": "dotenv -e .env -- bun run --elide-lines 0 --filter=@rituals/backend dev",
+    "dev:frontend": "dotenv -e .env -- bun run --filter=@rituals/frontend dev",
+    "dev": "dotenv -e .env -- bunx concurrently --names=server,client --prefix-colors=auto \"bun run dev:backend\" \"bun run dev:frontend\""
   },
   "devDependencies": {
     "@types/node": "^22",
@@ -27,5 +28,9 @@
     "node": ">=18.0.0",
     "bun": ">=1.0.0"
   },
-  "packageManager": "bun@1.0.0"
+  "packageManager": "bun@1.0.0",
+  "dependencies": {
+    "dotenv-cli": "^10.0.0",
+    "source-map-support": "^0.5.21"
+  }
 }

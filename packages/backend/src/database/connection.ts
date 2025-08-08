@@ -7,8 +7,8 @@ import { Pool, PoolConfig, types } from "pg";
 dotenv.config({ path: ".env" });
 
 // Configure pg types
-types.setTypeParser(types.builtins.INT8, (val) => BigInt(val));
-types.setTypeParser(types.builtins.INT4, (val) => BigInt(val));
+types.setTypeParser(types.builtins.INT8, (val) => parseInt(val));
+types.setTypeParser(types.builtins.INT4, (val) => parseInt(val));
 
 class DatabaseManager {
   private static instance: Kysely<Database>;

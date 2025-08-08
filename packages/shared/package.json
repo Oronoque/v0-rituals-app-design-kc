@@ -11,6 +11,8 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "async_hooks": "^1.0.0",
+    "express": "^5.1.0",
     "kysely": "^0.27.0",
     "neverthrow": "^8.2.0",
     "zod": "^3.22.0"

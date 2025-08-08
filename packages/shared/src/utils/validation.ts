@@ -1,7 +1,6 @@
 // Validation utilities for the fully-typed rituals system
 // Uses Zod schemas with inferred TypeScript types
 
-import { v4 } from "uuid";
 import { z } from "zod";
 
 // ===========================================
@@ -20,11 +19,11 @@ export interface ValidationResult {
 }
 
 // convert zod error to ValidationErrorDetail
-export const convertZodErrorToValidationErrorDetail = (
+export function convertZodErrorToValidationErrorDetail(
   error: z.ZodError
-): ValidationErrorDetail[] => {
+): ValidationErrorDetail[] {
   const details: ValidationErrorDetail[] = [];
-  error.errors.forEach((err) => {
+  error.errors.forEach(function addError(err) {
     details.push({
       field: err.path.join("."),
       message: err.message,
@@ -32,7 +31,7 @@ export const convertZodErrorToValidationErrorDetail = (
     });
   });
   return details;
-};
+}
 
 // ===========================================
 // AUTH SCHEMAS (EXISTING)

@@ -1,0 +1,29 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
+  "rules": {
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "CallExpression > ArrowFunctionExpression",
+        "message": "Do not use inline arrow functions here — assign it to a named constant/function first."
+      }
+    ],
+    "no-restricted-syntax": [
+      "error",
+      {
+        // Matches calls to asyncHandler where the first arg is an anonymous arrow
+        "selector": "CallExpression[callee.name='asyncHandler'] > ArrowFunctionExpression:first-child",
+        "message": "Handlers passed to asyncHandler must be named functions for better stack traces."
+      },
+      {
+        // Matches calls to asyncHandler where the first arg is an anonymous function expression
+        "selector": "CallExpression[callee.name='asyncHandler'] > FunctionExpression[id=null]:first-child",
+        "message": "Handlers passed to asyncHandler must be named functions for better stack traces."
+      }
+    ],
+    "@typescript-eslint/no-explicit-any": "off"
+  }
+}

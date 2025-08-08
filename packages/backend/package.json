@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@rituals/shared": "workspace:*",
+    "async_hooks": "^1.0.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
@@ -43,8 +44,8 @@
     "@types/node": "^20.10.0",
     "@types/pg": "^8.10.0",
     "@types/uuid": "^9.0.7",
-    "@typescript-eslint/eslint-plugin": "^6.15.0",
-    "@typescript-eslint/parser": "^6.15.0",
+    "@typescript-eslint/eslint-plugin": "^8.39.0",
+    "@typescript-eslint/parser": "^8.39.0",
     "bun-types": "latest",
     "eslint": "^8.56.0"
   },

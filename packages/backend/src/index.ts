@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import helmet from "helmet";
+import "source-map-support/register";
 
 // Import routes
 import authRoutes from "./routes/auth";
@@ -13,7 +14,29 @@ import ritualRoutes from "./routes/rituals";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 
 // Import database
+import { UserRole } from "@rituals/shared";
 import { closeConnection, testConnection } from "./database/connection";
+if (process.env.NODE_ENV !== "production") {
+  const originalLog = console.log;
+
+  console.log = function (...args) {
+    const stack = new Error().stack;
+    const callerLine = stack?.split("\n")[2];
+
+    const locationMatch = callerLine?.match(/\((.*):(\d+):(\d+)\)/);
+
+    let location = "";
+    if (locationMatch) {
+      const [, file, line, col] = locationMatch;
+      location = `${file}:${line}:${col}`;
+    } else {
+      location = callerLine?.trim() || "";
+    }
+
+    // Add a newline before printing
+    originalLog.apply(console, [`\x1b[32m[${location}]\x1b[0m`, "\n", ...args]);
+  };
+}
 
 // Load environment variables
 dotenv.config();
@@ -22,11 +45,11 @@ const app = express();
 const PORT = process.env.API_PORT || 3001;
 
 // Extend Express Request type to include user
-declare global {
-  namespace Express {
-    interface Request {
-      userId?: string;
-    }
+declare module "express-serve-static-core" {
+  interface Request {
+    userId?: string;
+    role?: UserRole;
+    email?: string;
   }
 }
 

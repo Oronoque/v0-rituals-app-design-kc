@@ -25,27 +25,15 @@ import {
   stepDefinitionSchema,
   stepResponseSchema,
 } from "../schemas";
-import { toNull } from "./util";
+import { toNull, transform } from "./util";
 
 export const createRitualSchema = z.object({
   ritual: z.object({
     name: z.string().min(1, "Name is required"),
-    description: z
-      .string()
-      .optional()
-      .nullable()
-      .transform((val) => val ?? null),
+    description: z.string().optional().nullable().transform(toNull),
     category: ritualCategorySchema,
-    location: z
-      .string()
-      .optional()
-      .nullable()
-      .transform((val) => val ?? null),
-    gear: z
-      .array(z.string())
-      .optional()
-      .nullable()
-      .transform((val) => val ?? null),
+    location: z.string().optional().nullable().transform(toNull),
+    gear: z.array(z.string()).optional().nullable().transform(toNull),
     is_public: z.boolean().default(false),
     is_active: z.boolean().default(true),
   }),
@@ -58,7 +46,7 @@ export const createRitualSchema = z.object({
       .array(z.number().min(0).max(6))
       .optional()
       .nullable()
-      .transform((val) => val ?? null),
+      .transform(toNull),
     specific_dates: z
       .array(
         z
@@ -67,16 +55,16 @@ export const createRitualSchema = z.object({
       )
       .optional()
       .nullable()
-      .transform((val) => val ?? null),
+      .transform(toNull),
   }),
   step_definitions: z.array(stepDefinitionSchema),
 });
 
 export type CreateRitual = z.infer<typeof createRitualSchema>;
 
-export const transformCreateRitual = (data: CreateRitual, user_id: UUID) => {
-  let ritual_id = v4();
-  let ritual: NewRitual = {
+export function transformCreateRitual(data: CreateRitual, user_id: UUID) {
+  const ritual_id = v4();
+  const ritual: NewRitual = {
     ...data.ritual,
     user_id: user_id,
     id: ritual_id,
@@ -84,13 +72,13 @@ export const transformCreateRitual = (data: CreateRitual, user_id: UUID) => {
     completion_count: 0,
     fork_count: 0,
   };
-  let frequency: NewRitualFrequency = {
+  const frequency: NewRitualFrequency = {
     ...data.frequency,
     ritual_id: ritual_id,
   };
-  let step_definitions: NewStepDefinition<StepType>[] =
-    data.step_definitions.map((step) => {
-      let config: StepConfigOf<StepType> = step.config;
+  const step_definitions: NewStepDefinition<StepType>[] =
+    data.step_definitions.map(function addStepDefinition(step) {
+      const config: StepConfigOf<StepType> = step.config;
       return {
         ...step,
         ritual_id: ritual_id,
@@ -102,7 +90,7 @@ export const transformCreateRitual = (data: CreateRitual, user_id: UUID) => {
     frequency,
     step_definitions,
   };
-};
+}
 
 // ===========================================
 // COMPLETE RITUAL SCHEMA & TRANSFORM
@@ -142,8 +130,8 @@ export const transformCompleteRitual = (
   };
 
   const step_responses: NewStepResponse<AnyStepType>[] =
-    data.step_responses.map((response) => {
-      let step_response: StepResponseOf<AnyStepType> = response.value;
+    data.step_responses.map(function addStepResponse(response) {
+      const step_response: StepResponseOf<AnyStepType> = response.value;
       return {
         ritual_completion_id: completion_id,
         step_definition_id: response.step_definition_id,
@@ -194,8 +182,8 @@ export const transformUpdateRitualCompletion = (
   } as RitualCompletionUpdate;
 
   const step_responses: StepResponseUpdate<AnyStepType>[] =
-    data.step_responses.map((response) => {
-      let step_response: StepResponseOf<AnyStepType> = response.value;
+    data.step_responses.map(function addStepResponse(response) {
+      const step_response: StepResponseOf<AnyStepType> = response.value;
       return {
         id: response.id,
         value: JSON.stringify(step_response),
@@ -215,22 +203,10 @@ export const updateRitualSchema = z.object({
   ritual: z
     .object({
       name: z.string().min(1, "Name is required").optional(),
-      description: z
-        .string()
-        .optional()
-        .nullable()
-        .transform((val) => val),
+      description: z.string().optional().nullable().transform(transform),
       category: ritualCategorySchema.optional(),
-      location: z
-        .string()
-        .optional()
-        .nullable()
-        .transform((val) => val),
-      gear: z
-        .array(z.string())
-        .optional()
-        .nullable()
-        .transform((val) => val),
+      location: z.string().optional().nullable().transform(transform),
+      gear: z.array(z.string()).optional().nullable().transform(transform),
       is_public: z.boolean().optional(),
       is_active: z.boolean().optional(),
     })
@@ -246,7 +222,7 @@ export const updateRitualSchema = z.object({
         .array(z.number().min(0).max(6))
         .optional()
         .nullable()
-        .transform((val) => val),
+        .transform(transform),
       specific_dates: z
         .array(
           z
@@ -255,7 +231,7 @@ export const updateRitualSchema = z.object({
         )
         .optional()
         .nullable()
-        .transform((val) => val),
+        .transform(transform),
     })
     .optional(),
 });
@@ -305,15 +281,15 @@ export const updateUserProfileSchema = z.object({
 
 export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;
 
-export const transformUpdateUserProfile = (
+export function transformUpdateUserProfile(
   data: UpdateUserProfile
-): UserUpdate => {
+): UserUpdate {
   return {
     first_name: data.first_name,
     last_name: data.last_name,
     updated_at: new Date().toISOString(),
   } as UserUpdate;
-};
+}
 
 // ===========================================
 // QUICK STEP RESPONSE SCHEMA & TRANSFORM
@@ -329,8 +305,8 @@ export const quickStepResponseSchema = z.object({
 
 export type QuickStepResponse = z.infer<typeof quickStepResponseSchema>;
 
-export const transformQuickStepResponse = (data: QuickStepResponse) => {
-  let step_val: StepResponseOf<AnyStepType> = data.value;
+export function transformQuickStepResponse(data: QuickStepResponse) {
+  const step_val: StepResponseOf<AnyStepType> = data.value;
   const step_response: NewStepResponse<AnyStepType> = {
     id: v4(),
     ritual_completion_id: data.ritual_completion_id,
@@ -342,7 +318,7 @@ export const transformQuickStepResponse = (data: QuickStepResponse) => {
   return {
     step_response,
   };
-};
+}
 
 // For quick update of a step response
 export const quickUpdateResponseSchema = z.object({
@@ -358,7 +334,7 @@ export const quickUpdateResponseSchema = z.object({
 
 export type QuickUpdateResponse = z.infer<typeof quickUpdateResponseSchema>;
 
-export const transformQuickUpdateResponse = (data: QuickUpdateResponse) => {
+export function transformQuickUpdateResponse(data: QuickUpdateResponse) {
   const step_update: StepResponseUpdate<AnyStepType> = {
     value: data.value ? JSON.stringify(data.value) : undefined,
     response_time_ms: data.response_time_ms,
@@ -367,7 +343,7 @@ export const transformQuickUpdateResponse = (data: QuickUpdateResponse) => {
   return {
     step_update,
   };
-};
+}
 
 // ===========================================
 // GET USER SCHEDULE SCHEMA (Query params)
@@ -381,7 +357,9 @@ export const getUserScheduleSchema = z.object({
     .string()
     .optional()
     .default("true")
-    .transform((val) => val === "true")
+    .transform(function transformIncludeCompleted(val) {
+      return val === "true";
+    })
     .pipe(z.boolean()),
   timezone: z.string().optional(),
 });
@@ -409,7 +387,7 @@ export const transformBatchCompleteRituals = (
   const all_completions: NewRitualCompletion[] = [];
   const all_step_responses: NewStepResponse<AnyStepType>[] = [];
 
-  data.completions.forEach((completion) => {
+  data.completions.forEach(function addCompletion(completion) {
     const transformed = transformCompleteRitual(completion, user_id);
     all_completions.push(transformed.ritual_completion);
     all_step_responses.push(...transformed.step_responses);
