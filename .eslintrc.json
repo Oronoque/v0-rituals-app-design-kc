@@ -5,13 +5,6 @@
   "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
   "rules": {
     "no-restricted-syntax": [
-      "warn",
-      {
-        "selector": "CallExpression > ArrowFunctionExpression",
-        "message": "Do not use inline arrow functions here — assign it to a named constant/function first."
-      }
-    ],
-    "no-restricted-syntax": [
       "error",
       {
         // Matches calls to asyncHandler where the first arg is an anonymous arrow
@@ -24,6 +17,7 @@
         "message": "Handlers passed to asyncHandler must be named functions for better stack traces."
       }
     ],
-    "@typescript-eslint/no-explicit-any": "off"
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-vars": "warn"
   }
 }

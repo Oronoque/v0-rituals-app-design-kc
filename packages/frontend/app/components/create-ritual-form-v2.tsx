@@ -1,10 +1,10 @@
 "use client";
-import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -12,13 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, X, ChevronUp, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 import { useCreateRitual } from "@/hooks/use-api";
-import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import type { CreateRitual } from "@rituals/shared";
+import { ArrowLeft, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 // Import enum values from schema
 const EXERCISE_TYPES = [
@@ -486,7 +486,7 @@ export function CreateRitualFormV2({
           days_of_week: formData.frequency.days_of_week.length > 0 ? formData.frequency.days_of_week : null,
           specific_dates: formData.frequency.specific_dates.length > 0 ? formData.frequency.specific_dates : null,
         },
-        // @ts-ignore
+        // @ts-expect-error - TODO: fix this
         step_definitions: formData.step_definitions.map((step) => ({
           order_index: step.order_index,
           type: step.type as any,

@@ -1,11 +1,10 @@
 "use client"
-import React, { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
-import { Button } from '@/components/ui/button'
-import { Check, Clock } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { getUnitByValue, type CustomStepAnswer } from '@/lib/units'
+import { cn } from '@/lib/utils'
+import { Check, Clock } from 'lucide-react'
+import { useState } from 'react'
 
 interface CustomStepInputProps {
   unit: string
@@ -80,13 +79,15 @@ export function CustomStepInput({
         </div>
       )
 
-    case 'range':
-      const rangeValue = parseInt(currentValue) || unitConfig.min || 1
+    case "range": {
+      const rangeValue = parseInt(currentValue) || unitConfig.min || 1;
       return (
         <div className={cn("space-y-3", className)}>
           <div className="flex items-center justify-between">
             <span className="text-[#AEAEB2] text-sm">{unitConfig.min}</span>
-            <span className="text-white text-lg font-semibold">{rangeValue}</span>
+            <span className="text-white text-lg font-semibold">
+              {rangeValue}
+            </span>
             <span className="text-[#AEAEB2] text-sm">{unitConfig.max}</span>
           </div>
           <Slider
@@ -98,9 +99,7 @@ export function CustomStepInput({
             className="w-full"
           />
           <div className="text-center">
-            <span className="text-[#AEAEB2] text-sm">
-              {unitConfig.label}
-            </span>
+            <span className="text-[#AEAEB2] text-sm">{unitConfig.label}</span>
             {value && (
               <div className="flex items-center justify-center text-green-400 mt-2">
                 <Check className="w-4 h-4 mr-1" />
@@ -109,7 +108,8 @@ export function CustomStepInput({
             )}
           </div>
         </div>
-      )
+      );
+    }
 
     case 'time':
       return (
