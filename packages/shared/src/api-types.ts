@@ -15,22 +15,16 @@ export class ApiError extends Error {
 
   constructor(message: string, status_code: number, cause?: unknown) {
     super(message, { cause });
+
     this.name = this.constructor.name;
     this.status_message = getErrorCode(status_code);
     this.status_code = status_code;
     this.request_id = requestContext.requestId;
     this.success = false;
 
-    // Filter stack to only include lines from our workspaces
-    if (this.stack) {
-      this.stack = this.stack
-        .split("\n")
-        .filter(
-          (line) =>
-            line.includes("packages/frontend") ||
-            line.includes("packages/backend")
-        )
-        .join("\n");
+    // Force stack trace to start from where the subclass was instantiated
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
     }
   }
 

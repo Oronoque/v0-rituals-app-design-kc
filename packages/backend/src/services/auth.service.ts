@@ -3,6 +3,7 @@
 
 import {
   AuthResponse,
+  InternalError,
   LoginRequest,
   RegisterRequest,
   RitualCategory,
@@ -92,7 +93,7 @@ export class AuthService {
       return result;
     } catch (error) {
       await client.query("ROLLBACK");
-      throw error;
+      throw new InternalError("Failed to register", error);
     } finally {
       client.release();
     }
@@ -100,34 +101,39 @@ export class AuthService {
 
   async login(data: LoginRequest): Promise<AuthResponse> {
     // Get user by email
-    const userQuery = "SELECT * FROM users WHERE email = $1";
-    const userResult = await this.pool.query(userQuery, [
-      data.email.toLowerCase(),
-    ]);
+    try {
+      const userQuery = "SELECT * FROM users WHERE email = $1";
+      const userResult = await this.pool.query(userQuery, [
+        data.email.toLowerCase(),
+      ]);
 
-    if (userResult.rows.length === 0) {
-      throw new Error("Invalid email or password");
+      if (userResult.rows.length === 0) {
+        throw new Error("Invalid email or password");
+      }
+
+      const user = userResult.rows[0] as User;
+
+      // Verify password
+      const isPasswordValid = await bcrypt
+        .compare(data.password, user.password_hash)
+        .catch((error) => {
+          throw new InternalError("Failed to login", error);
+        });
+
+      if (!isPasswordValid) {
+        throw new Error("Invalid email or password");
+      }
+
+      // Generate JWT token
+      const token = this.generateToken(user.id, user.email, user.role);
+
+      return {
+        user: this.sanitizeUser(user),
+        token,
+      };
+    } catch (error) {
+      throw new InternalError("Failed to login", error);
     }
-
-    const user = userResult.rows[0] as User;
-
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(
-      data.password,
-      user.password_hash
-    );
-
-    if (!isPasswordValid) {
-      throw new Error("Invalid email or password");
-    }
-
-    // Generate JWT token
-    const token = this.generateToken(user.id, user.email, user.role);
-
-    return {
-      user: this.sanitizeUser(user),
-      token,
-    };
   }
 
   async verifyToken(token: string): Promise<User> {
@@ -143,7 +149,7 @@ export class AuthService {
 
       return userResult.rows[0] as User;
     } catch (error) {
-      throw new Error("Invalid or expired token", { cause: error });
+      throw new InternalError("Invalid or expired token", error);
     }
   }
 
@@ -152,52 +158,56 @@ export class AuthService {
   // ===========================================
 
   async getUserProfile(userId: string): Promise<UserProfileResponse> {
-    // Get user data using Kysely
-    const user = await db
-      .selectFrom("users")
-      .selectAll()
-      .where("id", "=", userId)
-      .executeTakeFirst();
+    try {
+      // Get user data using Kysely
+      const user = await db
+        .selectFrom("users")
+        .selectAll()
+        .where("id", "=", userId)
+        .executeTakeFirst();
 
-    if (!user) {
-      throw new Error("User not found");
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      // Get ritual completions count
+      const completionsCount = await db
+        .selectFrom("ritual_completions")
+        .select(db.fn.count("id").as("total"))
+        .where("user_id", "=", userId)
+        .executeTakeFirst();
+
+      // Get favorite categories (most used ritual categories)
+      const favoriteCategories = await db
+        .selectFrom("ritual_completions as rc")
+        .leftJoin("rituals as r", "rc.ritual_id", "r.id")
+        .select(["r.category", db.fn.countAll().as("usage_count")])
+        .where("rc.user_id", "=", userId)
+        .where("r.category", "is not", null)
+        .groupBy("r.category")
+        .orderBy("usage_count", "desc")
+        .limit(3)
+        .execute();
+
+      const totalCompletions = Number(completionsCount?.total || 0);
+
+      const progress: UserProgress = {
+        user_id: userId,
+        current_streak: user.current_streak,
+        total_completions: totalCompletions,
+        completion_rate: 100, // Always 100% since we only store completed rituals
+        favorite_categories: favoriteCategories
+          .map((cat) => cat.category)
+          .filter(Boolean) as RitualCategory[],
+      };
+
+      return {
+        ...this.sanitizeUser(user),
+        progress,
+      };
+    } catch (error) {
+      throw new InternalError("Failed to get user profile", error);
     }
-
-    // Get ritual completions count
-    const completionsCount = await db
-      .selectFrom("ritual_completions")
-      .select(db.fn.count("id").as("total"))
-      .where("user_id", "=", userId)
-      .executeTakeFirst();
-
-    // Get favorite categories (most used ritual categories)
-    const favoriteCategories = await db
-      .selectFrom("ritual_completions as rc")
-      .leftJoin("rituals as r", "rc.ritual_id", "r.id")
-      .select(["r.category", db.fn.countAll().as("usage_count")])
-      .where("rc.user_id", "=", userId)
-      .where("r.category", "is not", null)
-      .groupBy("r.category")
-      .orderBy("usage_count", "desc")
-      .limit(3)
-      .execute();
-
-    const totalCompletions = Number(completionsCount?.total || 0);
-
-    const progress: UserProgress = {
-      user_id: userId,
-      current_streak: user.current_streak,
-      total_completions: totalCompletions,
-      completion_rate: 100, // Always 100% since we only store completed rituals
-      favorite_categories: favoriteCategories
-        .map((cat) => cat.category)
-        .filter(Boolean) as RitualCategory[],
-    };
-
-    return {
-      ...this.sanitizeUser(user),
-      progress,
-    };
   }
 
   async updateUserProfile(
@@ -237,14 +247,17 @@ export class AuthService {
       WHERE id = $${paramIndex++}
       RETURNING *
     `;
+    try {
+      const result = await this.pool.query(query, updateValues);
 
-    const result = await this.pool.query(query, updateValues);
+      if (result.rows.length === 0) {
+        throw new Error("User not found");
+      }
 
-    if (result.rows.length === 0) {
-      throw new Error("User not found");
+      return result.rows[0] as User;
+    } catch (error) {
+      throw new InternalError("Failed to update user profile", error);
     }
-
-    return result.rows[0] as User;
   }
 
   async deleteUser(userId: string): Promise<void> {
@@ -264,7 +277,7 @@ export class AuthService {
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
-      throw error;
+      throw new InternalError("Failed to delete user", error);
     } finally {
       client.release();
     }
@@ -290,12 +303,16 @@ export class AuthService {
       LIMIT $1 OFFSET $2
     `;
 
-    const dataResult = await this.pool.query(dataQuery, [limit, offset]);
-    const users = dataResult.rows.map((user) =>
-      this.sanitizeUser(user as User)
-    );
+    try {
+      const dataResult = await this.pool.query(dataQuery, [limit, offset]);
+      const users = dataResult.rows.map((user) =>
+        this.sanitizeUser(user as User)
+      );
 
-    return { users, total };
+      return { users, total };
+    } catch (error) {
+      throw new InternalError("Failed to get all users", error);
+    }
   }
 
   // ===========================================
@@ -333,33 +350,46 @@ export class AuthService {
   }
 
   async getUserById(userId: string): Promise<User | null> {
-    const query = "SELECT * FROM users WHERE id = $1";
-    const result = await this.pool.query(query, [userId]);
+    try {
+      const query = "SELECT * FROM users WHERE id = $1";
+      const result = await this.pool.query(query, [userId]);
 
-    return result.rows.length > 0 ? (result.rows[0] as User) : null;
+      return result.rows.length > 0 ? (result.rows[0] as User) : null;
+    } catch (error) {
+      throw new InternalError("Failed to get user by id", error);
+    }
   }
 
   async getUserByEmail(email: string): Promise<User | null> {
-    const query = "SELECT * FROM users WHERE email = $1";
-    const result = await this.pool.query(query, [email.toLowerCase()]);
+    try {
+      const query = "SELECT * FROM users WHERE email = $1";
+      const result = await this.pool.query(query, [email.toLowerCase()]);
 
-    return result.rows.length > 0 ? (result.rows[0] as User) : null;
+      return result.rows.length > 0 ? (result.rows[0] as User) : null;
+    } catch (error) {
+      throw new InternalError("Failed to get user by email", error);
+    }
   }
 
   async updateUserStreak(userId: string, streakChange: number): Promise<void> {
-    const query = `
+    try {
+      const query = `
       UPDATE users 
       SET current_streak = GREATEST(0, current_streak + $1), updated_at = NOW()
       WHERE id = $2
     `;
 
-    await this.pool.query(query, [streakChange, userId]);
+      await this.pool.query(query, [streakChange, userId]);
+    } catch (error) {
+      throw new InternalError("Failed to update user streak", error);
+    }
   }
 
   async getUsersWithUpcomingRituals(
     date: string
   ): Promise<Omit<User, "password_hash">[]> {
-    const query = `
+    try {
+      const query = `
       SELECT DISTINCT u.*
       FROM users u
       JOIN daily_rituals dr ON u.id = dr.user_id
@@ -368,7 +398,13 @@ export class AuthService {
         AND dr.is_active = true
     `;
 
-    const result = await this.pool.query(query, [date]);
-    return result.rows.map((user) => this.sanitizeUser(user as User));
+      const result = await this.pool.query(query, [date]);
+      return result.rows.map((user) => this.sanitizeUser(user as User));
+    } catch (error) {
+      throw new InternalError(
+        "Failed to get users with upcoming rituals",
+        error
+      );
+    }
   }
 }
