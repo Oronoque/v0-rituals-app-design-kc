@@ -1,6 +1,9 @@
 # Base Bun image
 FROM oven/bun:1-alpine AS base
+
 WORKDIR /app
+
+ENV NODE_ENV=production
 
 RUN apk add --no-cache libc6-compat python3 make g++
 
