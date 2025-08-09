@@ -40,6 +40,9 @@ if (process.env.NODE_ENV !== "production") {
 
 // Load environment variables
 dotenv.config();
+console.log("NODE_ENV", process.env.NODE_ENV);
+console.log("API_URL", process.env.API_URL);
+console.log("FRONTEND_URL", process.env.FRONTEND_URL);
 
 const app = express();
 const PORT = process.env.API_PORT || 3001;
