@@ -4,6 +4,8 @@ FROM oven/bun:1-alpine AS base
 WORKDIR /app
 
 ENV NODE_ENV=production
+ARG NEXT_PUBLIC_API_URL
+ARG API_URL
 
 RUN apk add --no-cache libc6-compat python3 make g++
 
