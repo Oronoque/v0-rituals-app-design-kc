@@ -1,15 +1,15 @@
 "use client";
 import { CreateRitualFormV2 } from "@/app/components/create-ritual-form-v2";
-import type { RitualWithSteps } from "@rituals/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  useAuth,
   useForkRitual,
   usePublicRituals,
   useUserRituals,
 } from "@/hooks/use-api";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import type { RitualWithSteps } from "@rituals/shared";
 import { Clock, Filter, Plus, Search, Star, Users } from "lucide-react";
 import { useState } from "react";
 
@@ -178,7 +178,7 @@ export function LibraryScreen({
 
   const currentData = activeTab === "public" ? publicData : privateData;
   const isLoading = activeTab === "public" ? publicLoading : privateLoading;
-  const rituals = currentData?.data.rituals || [];
+  const rituals = currentData?.rituals || [];
 
   // Show create ritual form
   if (showCreateForm) {

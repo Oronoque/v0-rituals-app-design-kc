@@ -1,10 +1,10 @@
 "use client";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mail, Target, Eye, EyeOff, User } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/use-api";
+import { Eye, EyeOff, Mail, Target, User } from "lucide-react";
+import { useState } from "react";
 
 interface AuthScreenProps {
   onAuthenticate?: () => void;

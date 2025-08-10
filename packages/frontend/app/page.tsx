@@ -6,7 +6,7 @@ import { HomeScreen } from "@/app/screens/home-screen";
 import { LibraryScreen } from "@/app/screens/library-screen";
 import type { FlowState } from "@/app/types";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/use-api";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { BookOpen, Calendar, Home, PenTool, Users } from "lucide-react";
 import { useState } from "react";

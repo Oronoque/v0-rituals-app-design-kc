@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   useCompleteRitual,
-  useCurrentUser,
   useDailySchedule,
   useDeleteRitual,
 } from "@/hooks/use-api";
+import { useCurrentUser } from "@/hooks/use-auth";
 import {
   CompleteRitual,
   RitualCompletionWithSteps,
@@ -52,8 +52,8 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const completeRitualMutation = useCompleteRitual();
   const deleteRitualMutation = useDeleteRitual();
 
-  const scheduledRituals = schedule?.data.scheduled_rituals || [];
-  const completedRituals = schedule?.data.completed_rituals || [];
+  const scheduledRituals = schedule?.scheduled_rituals || [];
+  const completedRituals = schedule?.completed_rituals || [];
   const totalRituals = scheduledRituals.length + completedRituals.length;
   const completedCount = completedRituals.length;
 
@@ -150,10 +150,10 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-white font-semibold text-lg">
-                    Welcome back, {user.data.first_name}!
+                    Welcome back, {user.first_name}!
                   </h3>
                   <p className="text-gray-300 text-sm">
-                    Current streak: {user.data.current_streak} days
+                    Current streak: {user.current_streak} days
                   </p>
                 </div>
                 <div className="text-right">
@@ -210,7 +210,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           <Card className="bg-[#2C2C2E] border-[#3C3C3E]">
             <CardContent className="p-3 text-center">
               <div className="text-2xl font-bold text-purple-400">
-                {user?.data.current_streak || 0}
+                {user?.current_streak || 0}
               </div>
               <div className="text-xs text-[#AEAEB2]">Day Streak</div>
             </CardContent>

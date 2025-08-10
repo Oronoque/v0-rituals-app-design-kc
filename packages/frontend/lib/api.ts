@@ -5,7 +5,6 @@ import {
   BatchCompleteRituals,
   CompleteRitual,
   CreateRitual,
-  InternalError,
   LoginRequest,
   QuickStepResponse,
   QuickUpdateResponse,
@@ -67,11 +66,15 @@ export class ApiClient {
         return err(apiResponse);
       }
     } catch (error) {
-      return err(
-        new InternalError(
-          `Failed to make request: ${error instanceof Error ? error.message : "Unknown error"}`
-        ).intoErrorResponse()
-      );
+      console.error(error);
+      return err({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unknown error, check console for details",
+        name: "InternalError",
+        status: "error",
+      } as ApiErrorResponse);
     }
   }
   // Auth Methods

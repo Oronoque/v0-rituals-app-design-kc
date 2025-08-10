@@ -19,7 +19,15 @@ import { toast } from "sonner";
 export function useDailySchedule(date: string) {
   return useQuery({
     queryKey: queryKeys.daily.schedule(date),
-    queryFn: () => api.getDailySchedule(date),
+    queryFn: async () => {
+      const result = await api.getDailySchedule(date);
+      if (result.isOk()) {
+        return result.value.data;
+      } else {
+        toast.error(result.error.message || "Failed to fetch daily schedule");
+        return null;
+      }
+    },
     staleTime: 2 * 60 * 1000, // Cache for 2 minutes
   });
 }
@@ -34,7 +42,15 @@ export function useUserRituals(params?: {
 }) {
   return useQuery({
     queryKey: queryKeys.rituals.user(params),
-    queryFn: () => api.getUserRituals(params),
+    queryFn: async () => {
+      const result = await api.getUserRituals(params);
+      if (result.isOk()) {
+        return result.value.data;
+      } else {
+        toast.error(result.error.message || "Failed to fetch user rituals");
+        return null;
+      }
+    },
     staleTime: 3 * 60 * 1000, // User's own rituals cache for 3 minutes
   });
 }
@@ -47,7 +63,15 @@ export function usePublicRituals(params?: {
 }) {
   return useQuery({
     queryKey: queryKeys.rituals.public(params),
-    queryFn: () => api.getPublicRituals(params),
+    queryFn: async () => {
+      const result = await api.getPublicRituals(params);
+      if (result.isOk()) {
+        return result.value.data;
+      } else {
+        toast.error(result.error.message || "Failed to fetch public rituals");
+        return null;
+      }
+    },
     staleTime: 10 * 60 * 1000, // Public rituals cache longer
   });
 }
@@ -55,7 +79,15 @@ export function usePublicRituals(params?: {
 export function useRitualById(id: string) {
   return useQuery({
     queryKey: queryKeys.rituals.byId(id),
-    queryFn: () => api.getRitualById(id),
+    queryFn: async () => {
+      const result = await api.getRitualById(id);
+      if (result.isOk()) {
+        return result.value.data;
+      } else {
+        toast.error(result.error.message || "Failed to fetch ritual");
+        return null;
+      }
+    },
     enabled: !!id,
   });
 }
@@ -63,7 +95,15 @@ export function useRitualById(id: string) {
 export function useRitualStats(id: string) {
   return useQuery({
     queryKey: queryKeys.rituals.stats(id),
-    queryFn: () => api.getRitualStats(id),
+    queryFn: async () => {
+      const result = await api.getRitualStats(id);
+      if (result.isOk()) {
+        return result.value.data;
+      } else {
+        toast.error(result.error.message || "Failed to fetch ritual stats");
+        return null;
+      }
+    },
     staleTime: 5 * 60 * 1000, // Stats cache for 5 minutes
   });
 }
