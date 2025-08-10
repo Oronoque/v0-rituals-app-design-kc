@@ -2,6 +2,7 @@
 // COMMON API TYPES
 // ===========================================
 
+import { Result } from "neverthrow";
 import { ZodError } from "zod";
 import { UserProgress, UserWithoutPassword } from "./database-types";
 import { requestContext } from "./request-id";
@@ -14,12 +15,17 @@ export class ApiError extends Error {
   status_code: number;
   request_id: string | undefined;
 
-  constructor(message: string, status_code: number, cause?: unknown) {
+  constructor(
+    message: string,
+    status_code: number,
+    cause?: unknown,
+    request_id?: string
+  ) {
     super(message, { cause });
 
     this.name = this.constructor.name;
     this.status_code = status_code;
-    this.request_id = requestContext.requestId;
+    this.request_id = request_id || requestContext.requestId;
     // Force stack trace to start from where the subclass was instantiated
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, this.constructor);
@@ -40,33 +46,57 @@ export class ApiError extends Error {
     };
   }
 
-  static parse(error: ApiError): ApiError {
+  static parseFromErrorResponse(error: ApiErrorResponse): ApiError {
     switch (error.name) {
       case "InternalError":
-        return new InternalError(error.message, error.cause);
+        return new InternalError(error.message);
       case "NotFoundError":
-        return new NotFoundError(error.message, error.cause);
+        return new NotFoundError(error.message);
       case "BadRequestError":
-        return new BadRequestError(error.message, error.cause);
+        return new BadRequestError(error.message);
       case "UnprocessableEntityError":
-        return new UnprocessableEntityError(error.message, error.cause);
+        return new UnprocessableEntityError(error.message);
       case "TooManyRequestsError":
-        return new TooManyRequestsError(error.message, error.cause);
+        return new TooManyRequestsError(error.message);
       case "UnauthorizedError":
-        return new UnauthorizedError(error.message, error.cause);
+        return new UnauthorizedError(error.message);
       case "ValidationError":
-        return new ValidationError(
-          (error as ValidationError).validation_errors,
-          error.cause
-        );
+        return new ValidationError(error.validation_errors!);
       case "ForbiddenError":
-        return new ForbiddenError(error.message, error.cause);
+        return new ForbiddenError(error.message);
       case "ConflictError":
-        return new ConflictError(error.message, error.cause);
+        return new ConflictError(error.message);
       default:
-        return new ApiError(error.message, error.status_code, error.cause);
+        return new InternalError(error.message);
     }
   }
+  // static parse(error: ApiError): ApiError {
+  //   switch (error.name) {
+  //     case "InternalError":
+  //       return new InternalError(error.message, error.cause);
+  //     case "NotFoundError":
+  //       return new NotFoundError(error.message, error.cause);
+  //     case "BadRequestError":
+  //       return new BadRequestError(error.message, error.cause);
+  //     case "UnprocessableEntityError":
+  //       return new UnprocessableEntityError(error.message, error.cause);
+  //     case "TooManyRequestsError":
+  //       return new TooManyRequestsError(error.message, error.cause);
+  //     case "UnauthorizedError":
+  //       return new UnauthorizedError(error.message, error.cause);
+  //     case "ValidationError":
+  //       return new ValidationError(
+  //         (error as ValidationError).validation_errors,
+  //         error.cause
+  //       );
+  //     case "ForbiddenError":
+  //       return new ForbiddenError(error.message, error.cause);
+  //     case "ConflictError":
+  //       return new ConflictError(error.message, error.cause);
+  //     default:
+  //       return new ApiError(error.message, error.status_code, error.cause);
+  //   }
+  // }
 
   protected printError(message: string) {
     const separator = `=== [${message}] ===`;
@@ -184,7 +214,7 @@ export interface ApiErrorResponse {
   validation_errors?: ValidationErrorDetail[];
 }
 
-export type ApiResult<T> = ApiSuccess<T> | ApiErrorResponse;
+export type ApiResult<T> = Result<ApiSuccess<T>, ApiErrorResponse>;
 
 export interface PaginationParams {
   page?: number | undefined;

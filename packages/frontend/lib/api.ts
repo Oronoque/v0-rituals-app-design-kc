@@ -1,9 +1,11 @@
 import {
   ApiErrorResponse,
+  ApiResult,
   ApiSuccess,
   BatchCompleteRituals,
   CompleteRitual,
   CreateRitual,
+  InternalError,
   LoginRequest,
   QuickStepResponse,
   QuickUpdateResponse,
@@ -15,6 +17,7 @@ import {
   UserDailySchedule,
   UserProfileResponse,
 } from "@rituals/shared";
+import { err, ok } from "neverthrow";
 
 // API Client Class
 export class ApiClient {
@@ -41,31 +44,40 @@ export class ApiClient {
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<ApiSuccess<T>> {
-    const url = `${this.baseUrl}${endpoint}`;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...(options.headers as Record<string, string>),
-    };
-    // With cookies, do not set Authorization header
-    const response = await fetch(url, {
-      ...options,
-      headers,
-      credentials: "include",
-    });
+  ): Promise<ApiResult<T>> {
+    try {
+      const url = `${this.baseUrl}${endpoint}`;
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(options.headers as Record<string, string>),
+      };
+      // With cookies, do not set Authorization header
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        credentials: "include",
+      });
 
-    const apiResponse = (await response.json()) as
-      | ApiSuccess<T>
-      | ApiErrorResponse;
-    if (apiResponse.status === "error") {
-      throw apiResponse;
+      const apiResponse = (await response.json()) as
+        | ApiSuccess<T>
+        | ApiErrorResponse;
+      if (apiResponse.status === "success") {
+        return ok(apiResponse);
+      } else {
+        return err(apiResponse);
+      }
+    } catch (error) {
+      return err(
+        new InternalError(
+          `Failed to make request: ${error instanceof Error ? error.message : "Unknown error"}`
+        ).intoErrorResponse()
+      );
     }
-    return apiResponse;
   }
   // Auth Methods
   async login(
     credentials: LoginRequest
-  ): Promise<ApiSuccess<UserProfileResponse>> {
+  ): Promise<ApiResult<UserProfileResponse>> {
     const response = await this.request<UserProfileResponse>("/auth/login", {
       method: "POST",
       body: JSON.stringify(credentials),
@@ -75,7 +87,7 @@ export class ApiClient {
 
   async register(
     credentials: RegisterRequest
-  ): Promise<ApiSuccess<UserProfileResponse>> {
+  ): Promise<ApiResult<UserProfileResponse>> {
     const response = await this.request<UserProfileResponse>("/auth/register", {
       method: "POST",
       body: JSON.stringify(credentials),
@@ -83,18 +95,18 @@ export class ApiClient {
     return response;
   }
 
-  async getCurrentUser(): Promise<ApiSuccess<UserProfileResponse>> {
+  async getCurrentUser(): Promise<ApiResult<UserProfileResponse>> {
     return this.request<UserProfileResponse>("/auth/profile");
   }
 
-  async logout(): Promise<ApiSuccess<void>> {
+  async logout(): Promise<ApiResult<void>> {
     return this.request<void>("/auth/logout", {
       method: "POST",
     });
   }
 
   // Daily Schedule Methods
-  async getDailySchedule(date: string): Promise<ApiSuccess<UserDailySchedule>> {
+  async getDailySchedule(date: string): Promise<ApiResult<UserDailySchedule>> {
     const params = new URLSearchParams({ date });
     return this.request<UserDailySchedule>(`/daily-rituals/schedule?${params}`);
   }
@@ -102,7 +114,7 @@ export class ApiClient {
   // Ritual Methods
   async createRitual(
     ritual: CreateRitual
-  ): Promise<ApiSuccess<RitualWithConfig>> {
+  ): Promise<ApiResult<RitualWithConfig>> {
     return this.request<RitualWithConfig>("/rituals", {
       method: "POST",
       body: JSON.stringify(ritual),
@@ -115,7 +127,7 @@ export class ApiClient {
     search?: string;
     limit?: number;
     offset?: number;
-  }): Promise<ApiSuccess<{ rituals: RitualWithConfig[]; total: number }>> {
+  }): Promise<ApiResult<{ rituals: RitualWithConfig[]; total: number }>> {
     const params = new URLSearchParams();
     if (options?.filter) params.append("filter", options.filter);
     if (options?.category) params.append("category", options.category);
@@ -136,7 +148,7 @@ export class ApiClient {
     category?: string;
     limit?: number;
     offset?: number;
-  }): Promise<ApiSuccess<{ rituals: RitualWithConfig[]; total: number }>> {
+  }): Promise<ApiResult<{ rituals: RitualWithConfig[]; total: number }>> {
     const params = new URLSearchParams();
     if (options?.search) params.append("search", options.search);
     if (options?.category) params.append("category", options.category);
@@ -153,12 +165,12 @@ export class ApiClient {
     );
   }
 
-  async getRitualById(id: string): Promise<ApiSuccess<RitualWithConfig>> {
+  async getRitualById(id: string): Promise<ApiResult<RitualWithConfig>> {
     return this.request<RitualWithConfig>(`/rituals/${id}`);
   }
 
   async getRitualStats(id: string): Promise<
-    ApiSuccess<{
+    ApiResult<{
       total_completions: number;
       avg_duration: number;
       recent_completions: any[];
@@ -170,7 +182,7 @@ export class ApiClient {
   async updateRitual(
     id: string,
     updates: UpdateRitual
-  ): Promise<ApiSuccess<RitualWithConfig>> {
+  ): Promise<ApiResult<RitualWithConfig>> {
     return this.request<RitualWithConfig>(`/rituals/${id}`, {
       method: "PUT",
       body: JSON.stringify(updates),
@@ -186,7 +198,7 @@ export class ApiClient {
   async completeRitual(
     id: string,
     completion: Omit<CompleteRitual, "ritual_id">
-  ): Promise<ApiSuccess<RitualCompletionWithSteps>> {
+  ): Promise<ApiResult<RitualCompletionWithSteps>> {
     return this.request<RitualCompletionWithSteps>(`/rituals/${id}/complete`, {
       method: "POST",
       body: JSON.stringify(completion),
@@ -196,26 +208,26 @@ export class ApiClient {
   async updateRitualCompletion(
     id: string,
     updates: UpdateRitualCompletion
-  ): Promise<ApiSuccess<RitualCompletionWithSteps>> {
+  ): Promise<ApiResult<RitualCompletionWithSteps>> {
     return this.request<RitualCompletionWithSteps>(`/rituals/${id}/complete`, {
       method: "PUT",
       body: JSON.stringify(updates),
     });
   }
 
-  async forkRitual(id: string): Promise<ApiSuccess<RitualWithConfig>> {
+  async forkRitual(id: string): Promise<ApiResult<RitualWithConfig>> {
     return this.request<RitualWithConfig>(`/rituals/${id}/fork`, {
       method: "POST",
     });
   }
 
-  async publishRitual(id: string): Promise<ApiSuccess<RitualWithConfig>> {
+  async publishRitual(id: string): Promise<ApiResult<RitualWithConfig>> {
     return this.request<RitualWithConfig>(`/rituals/${id}/publish`, {
       method: "POST",
     });
   }
 
-  async unpublishRitual(id: string): Promise<ApiSuccess<RitualWithConfig>> {
+  async unpublishRitual(id: string): Promise<ApiResult<RitualWithConfig>> {
     return this.request<RitualWithConfig>(`/rituals/${id}/unpublish`, {
       method: "POST",
     });
@@ -225,7 +237,7 @@ export class ApiClient {
   async createQuickStepResponse(
     id: string,
     stepData: QuickStepResponse
-  ): Promise<ApiSuccess<any>> {
+  ): Promise<ApiResult<any>> {
     return this.request(`/rituals/${id}/quick-step`, {
       method: "POST",
       body: JSON.stringify(stepData),
@@ -235,7 +247,7 @@ export class ApiClient {
   async updateQuickStepResponse(
     id: string,
     updateData: QuickUpdateResponse
-  ): Promise<ApiSuccess<any>> {
+  ): Promise<ApiResult<any>> {
     return this.request(`/rituals/${id}/quick-update`, {
       method: "PUT",
       body: JSON.stringify(updateData),
@@ -245,7 +257,7 @@ export class ApiClient {
   // Batch Operations
   async batchCompleteRituals(
     batchData: BatchCompleteRituals
-  ): Promise<ApiSuccess<{ completions: any[]; total_completed: number }>> {
+  ): Promise<ApiResult<{ completions: any[]; total_completed: number }>> {
     return this.request(`/rituals/batch-complete`, {
       method: "POST",
       body: JSON.stringify(batchData),
