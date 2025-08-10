@@ -43,6 +43,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=shared-builder /app/packages/shared ./packages/shared
 COPY packages/backend ./packages/backend
 COPY package.json ./
+COPY tsconfig.json ./
 RUN bun run build:backend
 
 # ------------------------------------
