@@ -1,4 +1,10 @@
-import { UnauthorizedError, UserRole } from "@rituals/shared";
+import {
+  ApiError,
+  getErrorCode,
+  InternalError,
+  UnauthorizedError,
+  UserRole,
+} from "@rituals/shared";
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
@@ -20,14 +26,13 @@ export function requireAuth(
   next: NextFunction
 ): void {
   try {
-    // Get token from Authorization header
+    // Prefer httpOnly cookie; fall back to Authorization header for backward compat
+    const tokenFromCookie = (req as any).cookies?.token as string | undefined;
     const authorization = req.headers.authorization;
-
-    if (!authorization || !authorization.startsWith("Bearer ")) {
-      throw new UnauthorizedError("Missing or invalid authorization header");
-    }
-
-    const token = authorization.slice(7); // Remove 'Bearer ' prefix
+    const tokenFromHeader = authorization?.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : undefined;
+    const token = tokenFromCookie || tokenFromHeader;
 
     if (!token) {
       throw new UnauthorizedError("Missing token");
@@ -46,13 +51,29 @@ export function requireAuth(
 
     next();
   } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      next(new UnauthorizedError("Invalid token"));
-    } else if (error instanceof jwt.TokenExpiredError) {
-      next(new UnauthorizedError("Token expired"));
+    let apiError: ApiError | undefined;
+
+    if (error instanceof Error) {
+      if (error instanceof ApiError) {
+        apiError = error;
+      } else {
+        if (error instanceof jwt.JsonWebTokenError) {
+          apiError = new UnauthorizedError("Invalid token", error);
+        } else if (error instanceof jwt.TokenExpiredError) {
+          apiError = new UnauthorizedError("Token expired", error);
+        } else {
+          apiError = new InternalError(
+            "Unexpected error: " + error.message,
+            error
+          );
+        }
+      }
     } else {
-      next(error);
+      apiError = new InternalError("Unknown error", error);
     }
+
+    res.statusMessage = getErrorCode(apiError.status_code);
+    res.status(apiError.status_code).json(apiError.intoErrorResponse());
   }
 }
 

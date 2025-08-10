@@ -27,7 +27,6 @@ import {
   UserDailySchedule,
 } from "@rituals/shared";
 import { Request } from "express";
-import { ok } from "neverthrow";
 import { db } from "../database/connection";
 import { asyncHandler } from "../middleware/error-handler";
 
@@ -147,7 +146,7 @@ const shouldRitualBeScheduledForDate = (
 export const getDailySchedule = asyncHandler(
   async function getDailyScheduleHandler(req: Request) {
     if (!req.userId) {
-      return new UnauthorizedError("Authentication required").neverThrow();
+      throw new UnauthorizedError("Authentication required");
     }
 
     const validatedQuery = getUserScheduleSchema.parse(req.query);
@@ -284,12 +283,12 @@ export const getDailySchedule = asyncHandler(
       completed_rituals: completedRituals,
     };
 
-    return ok({
+    return {
       data: schedule,
       message: "Daily schedule fetched successfully",
       status_code: 200,
       success: true,
-    });
+    };
   }
 );
 
@@ -310,13 +309,11 @@ export const getPublicRituals = asyncHandler(
 
     // Validate limit and offset
     if (limit < 1 || limit > 100) {
-      return new BadRequestError(
-        "Limit must be between 1 and 100"
-      ).neverThrow();
+      throw new BadRequestError("Limit must be between 1 and 100");
     }
 
     if (offset < 0) {
-      return new BadRequestError("Offset must be non-negative").neverThrow();
+      throw new BadRequestError("Offset must be non-negative");
     }
 
     let query = db
@@ -383,12 +380,12 @@ export const getPublicRituals = asyncHandler(
       rituals as (Ritual & RitualFrequency)[]
     );
 
-    return ok({
+    return {
       data: { rituals: ritualsWithConfig, total },
       message: "Public rituals fetched successfully",
       status_code: 200,
       success: true,
-    });
+    };
   }
 );
 
@@ -404,7 +401,7 @@ export const getUserRituals = asyncHandler(async function getUserRitualsHandler(
   req: Request
 ) {
   if (!req.userId) {
-    return new UnauthorizedError("Authentication required").neverThrow();
+    throw new UnauthorizedError("Authentication required");
   }
 
   const filter = req.query.filter as "all" | "public" | "private" | undefined;
@@ -415,18 +412,16 @@ export const getUserRituals = asyncHandler(async function getUserRitualsHandler(
 
   // Validate filter
   if (filter && !["all", "public", "private"].includes(filter)) {
-    return new BadRequestError(
-      "Filter must be one of: all, public, private"
-    ).neverThrow();
+    throw new BadRequestError("Filter must be one of: all, public, private");
   }
 
   // Validate limit and offset
   if (limit < 1 || limit > 100) {
-    return new BadRequestError("Limit must be between 1 and 100").neverThrow();
+    throw new BadRequestError("Limit must be between 1 and 100");
   }
 
   if (offset < 0) {
-    return new BadRequestError("Offset must be non-negative").neverThrow();
+    throw new BadRequestError("Offset must be non-negative");
   }
 
   let query = db
@@ -499,12 +494,12 @@ export const getUserRituals = asyncHandler(async function getUserRitualsHandler(
     rituals as (Ritual & RitualFrequency)[]
   );
 
-  return ok({
+  return {
     data: { rituals: ritualsWithConfig, total },
     message: "User rituals fetched successfully",
     status_code: 200,
     success: true,
-  });
+  };
 });
 
 // ===========================================
@@ -519,7 +514,7 @@ export const createRitual = asyncHandler(async function createRitualHandler(
   req: Request
 ) {
   if (!req.userId) {
-    return new UnauthorizedError("Authentication required").neverThrow();
+    throw new UnauthorizedError("Authentication required");
   }
 
   const validatedData = createRitualSchema.parse(req.body);
@@ -559,12 +554,12 @@ export const createRitual = asyncHandler(async function createRitualHandler(
     };
   });
 
-  return ok({
+  return {
     data: ritual,
     message: "Ritual created successfully",
     status_code: 201,
     success: true,
-  });
+  };
 });
 
 /**
@@ -576,17 +571,17 @@ export const getRitualById = asyncHandler(async function getRitualByIdHandler(
 ) {
   const { id } = req.params;
   if (!id) {
-    return new BadRequestError("Ritual ID is required").neverThrow();
+    throw new BadRequestError("Ritual ID is required");
   }
 
   const ritual = await getRitualWithConfig(id);
 
-  return ok({
+  return {
     data: ritual,
     message: "Ritual fetched successfully",
     status_code: 200,
     success: true,
-  });
+  };
 });
 
 /**
@@ -597,12 +592,12 @@ export const updateRitual = asyncHandler(async function updateRitualHandler(
   req: Request
 ) {
   if (!req.userId) {
-    return new UnauthorizedError("Authentication required").neverThrow();
+    throw new UnauthorizedError("Authentication required");
   }
 
   const { id } = req.params;
   if (!id) {
-    return new BadRequestError("Ritual ID is required").neverThrow();
+    throw new BadRequestError("Ritual ID is required");
   }
 
   const validatedData = updateRitualSchema.parse(req.body);
@@ -631,12 +626,12 @@ export const updateRitual = asyncHandler(async function updateRitualHandler(
     return await getRitualWithConfig(id);
   });
 
-  return ok({
+  return {
     data: ritual,
     message: "Ritual updated successfully",
     status_code: 200,
     success: true,
-  });
+  };
 });
 
 /**
@@ -647,12 +642,12 @@ export const deleteRitual = asyncHandler(async function deleteRitualHandler(
   req: Request
 ) {
   if (!req.userId) {
-    return new UnauthorizedError("Authentication required").neverThrow();
+    throw new UnauthorizedError("Authentication required");
   }
 
   const { id } = req.params;
   if (!id) {
-    return new BadRequestError("Ritual ID is required").neverThrow();
+    throw new BadRequestError("Ritual ID is required");
   }
 
   const result = await db
@@ -665,12 +660,12 @@ export const deleteRitual = asyncHandler(async function deleteRitualHandler(
     throw new Error("Ritual not found or access denied");
   }
 
-  return ok({
+  return {
     data: { message: "Ritual deleted successfully" },
     message: "Ritual deleted successfully",
     status_code: 204,
     success: true,
-  });
+  };
 });
 
 // ===========================================
@@ -685,12 +680,12 @@ export const completeRitual = asyncHandler(async function completeRitualHandler(
   req: Request
 ) {
   if (!req.userId) {
-    return new UnauthorizedError("Authentication required").neverThrow();
+    throw new UnauthorizedError("Authentication required");
   }
 
   const { id } = req.params;
   if (!id) {
-    return new BadRequestError("Ritual ID is required").neverThrow();
+    throw new BadRequestError("Ritual ID is required");
   }
 
   const completionData = { ...req.body, ritual_id: id };
@@ -756,12 +751,12 @@ export const completeRitual = asyncHandler(async function completeRitualHandler(
     };
   });
 
-  return ok({
+  return {
     data: completion,
     message: "Ritual completed successfully",
     status_code: 201,
     success: true,
-  });
+  };
 });
 
 /**
@@ -771,12 +766,12 @@ export const completeRitual = asyncHandler(async function completeRitualHandler(
 export const updateRitualCompletion = asyncHandler(
   async function updateRitualCompletionHandler(req: Request) {
     if (!req.userId) {
-      return new UnauthorizedError("Authentication required").neverThrow();
+      throw new UnauthorizedError("Authentication required");
     }
 
     const { id } = req.params;
     if (!id) {
-      return new BadRequestError("Ritual ID is required").neverThrow();
+      throw new BadRequestError("Ritual ID is required");
     }
 
     const completionData = { ...req.body, ritual_id: id };
@@ -848,12 +843,12 @@ export const updateRitualCompletion = asyncHandler(
       };
     });
 
-    return ok({
+    return {
       data: completion,
       message: "Ritual completion updated successfully",
       status_code: 201,
       success: true,
-    });
+    };
   }
 );
 
@@ -868,7 +863,7 @@ export const updateRitualCompletion = asyncHandler(
 export const createQuickStepResponse = asyncHandler(
   async function createQuickStepResponseHandler(req: Request) {
     if (!req.userId) {
-      return new UnauthorizedError("Authentication required").neverThrow();
+      throw new UnauthorizedError("Authentication required");
     }
 
     const validatedData = quickStepResponseSchema.parse(req.body);
@@ -880,12 +875,12 @@ export const createQuickStepResponse = asyncHandler(
       .returningAll()
       .executeTakeFirstOrThrow();
 
-    return ok({
+    return {
       data: stepResponse,
       message: "Quick step response created successfully",
       status_code: 201,
       success: true,
-    });
+    };
   }
 );
 
@@ -896,7 +891,7 @@ export const createQuickStepResponse = asyncHandler(
 export const updateQuickStepResponse = asyncHandler(
   async function updateQuickStepResponseHandler(req: Request) {
     if (!req.userId) {
-      return new UnauthorizedError("Authentication required").neverThrow();
+      throw new UnauthorizedError("Authentication required");
     }
 
     const validatedData = quickUpdateResponseSchema.parse(req.body);
@@ -909,12 +904,12 @@ export const updateQuickStepResponse = asyncHandler(
       .returningAll()
       .executeTakeFirstOrThrow();
 
-    return ok({
+    return {
       data: stepResponse,
       message: "Quick step response updated successfully",
       status_code: 200,
       success: true,
-    });
+    };
   }
 );
 
@@ -929,7 +924,7 @@ export const updateQuickStepResponse = asyncHandler(
 export const batchCompleteRituals = asyncHandler(
   async function batchCompleteRitualsHandler(req: Request) {
     if (!req.userId) {
-      return new UnauthorizedError("Authentication required").neverThrow();
+      throw new UnauthorizedError("Authentication required");
     }
 
     const validatedData = batchCompleteRitualsSchema.parse(req.body);
@@ -962,7 +957,7 @@ export const batchCompleteRituals = asyncHandler(
       return createdCompletions;
     });
 
-    return ok({
+    return {
       data: {
         completions,
         total_completed: completions.length,
@@ -970,7 +965,7 @@ export const batchCompleteRituals = asyncHandler(
       message: `${completions.length} rituals completed successfully!`,
       status_code: 201,
       success: true,
-    });
+    };
   }
 );
 
@@ -986,19 +981,19 @@ export const forkRitual = asyncHandler(async function forkRitualHandler(
   req: Request
 ) {
   if (!req.userId) {
-    return new UnauthorizedError("Authentication required").neverThrow();
+    throw new UnauthorizedError("Authentication required");
   }
 
   const { id } = req.params;
   if (!id) {
-    return new BadRequestError("Ritual ID is required").neverThrow();
+    throw new BadRequestError("Ritual ID is required");
   }
 
   const originalRitual = await getRitualWithConfig(id);
 
   // Check if ritual is public or user owns it
   if (!originalRitual.is_public && originalRitual.user_id !== req.userId) {
-    return new ForbiddenError("Cannot fork private ritual").neverThrow();
+    throw new ForbiddenError("Cannot fork private ritual");
   }
 
   const forkedRitual = await db.transaction().execute(async (trx) => {
@@ -1067,12 +1062,12 @@ export const forkRitual = asyncHandler(async function forkRitualHandler(
     };
   });
 
-  return ok({
+  return {
     data: forkedRitual,
     message: "Ritual forked successfully",
     status_code: 201,
     success: true,
-  });
+  };
 });
 
 /**
@@ -1083,12 +1078,12 @@ export const publishRitual = asyncHandler(async function publishRitualHandler(
   req: Request
 ) {
   if (!req.userId) {
-    return new UnauthorizedError("Authentication required").neverThrow();
+    throw new UnauthorizedError("Authentication required");
   }
 
   const { id } = req.params;
   if (!id) {
-    return new BadRequestError("Ritual ID is required").neverThrow();
+    throw new BadRequestError("Ritual ID is required");
   }
 
   await db
@@ -1100,12 +1095,12 @@ export const publishRitual = asyncHandler(async function publishRitualHandler(
 
   const ritual = await getRitualWithConfig(id);
 
-  return ok({
+  return {
     data: ritual,
     message: "Ritual published successfully",
     status_code: 200,
     success: true,
-  });
+  };
 });
 
 /**
@@ -1115,12 +1110,12 @@ export const publishRitual = asyncHandler(async function publishRitualHandler(
 export const unpublishRitual = asyncHandler(
   async function unpublishRitualHandler(req: Request) {
     if (!req.userId) {
-      return new UnauthorizedError("Authentication required").neverThrow();
+      throw new UnauthorizedError("Authentication required");
     }
 
     const { id } = req.params;
     if (!id) {
-      return new BadRequestError("Ritual ID is required").neverThrow();
+      throw new BadRequestError("Ritual ID is required");
     }
 
     await db
@@ -1132,12 +1127,10 @@ export const unpublishRitual = asyncHandler(
 
     const ritual = await getRitualWithConfig(id);
 
-    return ok({
+    return {
       data: ritual,
       message: "Ritual unpublished successfully",
-      status_code: 200,
-      success: true,
-    });
+    };
   }
 );
 
@@ -1153,12 +1146,12 @@ export const getRitualStats = asyncHandler(async function getRitualStatsHandler(
   req: Request
 ) {
   if (!req.userId) {
-    return new UnauthorizedError("Authentication required").neverThrow();
+    throw new UnauthorizedError("Authentication required");
   }
 
   const { id } = req.params;
   if (!id) {
-    return new BadRequestError("Ritual ID is required").neverThrow();
+    throw new BadRequestError("Ritual ID is required");
   }
 
   // Get basic completion stats
@@ -1189,10 +1182,8 @@ export const getRitualStats = asyncHandler(async function getRitualStatsHandler(
     recent_completions: recentCompletions,
   };
 
-  return ok({
+  return {
     data: stats,
     message: "Ritual stats fetched successfully",
-    status_code: 200,
-    success: true,
-  });
+  };
 });

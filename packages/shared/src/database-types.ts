@@ -224,6 +224,7 @@ export interface StepResponseMap {
 
 // Users
 export type User = Selectable<UsersTable>;
+export type UserWithoutPassword = Omit<User, "password_hash">;
 export type NewUser = Insertable<UsersTable>;
 export type UserUpdate = Updateable<UsersTable>;
 

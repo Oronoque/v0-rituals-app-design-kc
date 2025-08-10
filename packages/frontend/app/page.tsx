@@ -1,23 +1,24 @@
 "use client";
-import { useState } from "react";
+import { ChangelogScreen } from "@/app/components/changelog-screen";
+import { CreateRitualFormV2 } from "@/app/components/create-ritual-form-v2";
 import { AuthScreen } from "@/app/screens/auth-screen";
 import { HomeScreen } from "@/app/screens/home-screen";
 import { LibraryScreen } from "@/app/screens/library-screen";
-import { ChangelogScreen } from "@/app/components/changelog-screen";
+import type { FlowState } from "@/app/types";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-api";
-import { Home, BookOpen, Calendar, Users, PenTool } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { FlowState } from "@/app/types";
-import { CreateRitualFormV2 } from "@/app/components/create-ritual-form-v2";
+import { BookOpen, Calendar, Home, PenTool, Users } from "lucide-react";
+import { useState } from "react";
 
 export default function RitualsApp() {
   const [currentFlow, setCurrentFlow] = useState<FlowState>("home");
   const [showChangelog, setShowChangelog] = useState(false);
-  const [changelogRitualId, setChangelogRitualId] = useState<string | null>(null);
+  const [changelogRitualId, setChangelogRitualId] = useState<string | null>(
+    null
+  );
 
-  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
-
+  const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const navItems = [
     {
       id: "home" as FlowState,
@@ -62,7 +63,7 @@ export default function RitualsApp() {
       setCurrentFlow("library-private");
       return;
     }
-    
+
     if (screen.startsWith("completion-")) {
       // Handle view completion details
       const completionId = screen.replace("completion-", "");
@@ -73,17 +74,26 @@ export default function RitualsApp() {
 
     // Handle standard navigation
     const validFlows: FlowState[] = [
-      "home", "auth", "library", "library-private", "library-public", 
-      "create", "dayflow", "schedule", "journal", "social", "settings"
+      "home",
+      "auth",
+      "library",
+      "library-private",
+      "library-public",
+      "create",
+      "dayflow",
+      "schedule",
+      "journal",
+      "social",
+      "settings",
     ];
-    
+
     if (validFlows.includes(screen as FlowState)) {
       setCurrentFlow(screen as FlowState);
     } else {
       console.warn("Unknown navigation target:", screen);
       setCurrentFlow("home");
     }
-    
+
     // Reset changelog when navigating
     setShowChangelog(false);
     setChangelogRitualId(null);
@@ -130,10 +140,12 @@ export default function RitualsApp() {
       <div className="h-1 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0" />
 
       {/* Main Content Area */}
-      <div className={cn(
-        "flex-1 flex flex-col overflow-hidden",
-        showBottomNav ? "pb-20" : ""
-      )}>
+      <div
+        className={cn(
+          "flex-1 flex flex-col overflow-hidden",
+          showBottomNav ? "pb-20" : ""
+        )}
+      >
         {(() => {
           switch (currentFlow) {
             case "auth":
@@ -167,13 +179,24 @@ export default function RitualsApp() {
               return (
                 <div className="flex-1 flex items-center justify-center p-4">
                   <div className="text-center">
-                    <h2 className="text-2xl font-bold mb-4 text-white">Settings</h2>
-                    <p className="text-[#AEAEB2] mb-6">Settings screen coming soon...</p>
+                    <h2 className="text-2xl font-bold mb-4 text-white">
+                      Settings
+                    </h2>
+                    <p className="text-[#AEAEB2] mb-6">
+                      Settings screen coming soon...
+                    </p>
                     <div className="space-y-3">
-                      <Button onClick={() => handleNavigate("home")} className="bg-blue-500 hover:bg-blue-600 w-full">
+                      <Button
+                        onClick={() => handleNavigate("home")}
+                        className="bg-blue-500 hover:bg-blue-600 w-full"
+                      >
                         Back to Home
                       </Button>
-                      <Button onClick={() => logout()} variant="destructive" className="w-full">
+                      <Button
+                        onClick={() => logout()}
+                        variant="destructive"
+                        className="w-full"
+                      >
                         Sign Out
                       </Button>
                     </div>
@@ -187,9 +210,14 @@ export default function RitualsApp() {
               return (
                 <div className="flex-1 flex items-center justify-center p-4">
                   <div className="text-center">
-                    <h2 className="text-2xl font-bold mb-4 capitalize text-white">{currentFlow} Screen</h2>
+                    <h2 className="text-2xl font-bold mb-4 capitalize text-white">
+                      {currentFlow} Screen
+                    </h2>
                     <p className="text-[#AEAEB2] mb-6">Coming soon...</p>
-                    <Button onClick={() => handleNavigate("home")} className="bg-blue-500 hover:bg-blue-600">
+                    <Button
+                      onClick={() => handleNavigate("home")}
+                      className="bg-blue-500 hover:bg-blue-600"
+                    >
                       Back to Home
                     </Button>
                   </div>
@@ -216,20 +244,22 @@ export default function RitualsApp() {
                   className="flex flex-col items-center gap-1 p-2 min-w-0"
                   onClick={() => handleNavigate(item.id)}
                 >
-                  <div className={cn(
-                    "w-6 h-6 rounded-md flex items-center justify-center transition-colors",
-                    isActive 
-                      ? "bg-blue-500 text-white" 
-                      : "bg-[#3C3C3E] text-[#8E8E93]"
-                  )}>
+                  <div
+                    className={cn(
+                      "w-6 h-6 rounded-md flex items-center justify-center transition-colors",
+                      isActive
+                        ? "bg-blue-500 text-white"
+                        : "bg-[#3C3C3E] text-[#8E8E93]"
+                    )}
+                  >
                     <span className="text-xs">{item.emoji}</span>
                   </div>
-                  <span className={cn(
-                    "text-xs transition-colors",
-                    isActive 
-                      ? "text-blue-500 font-medium" 
-                      : "text-[#8E8E93]"
-                  )}>
+                  <span
+                    className={cn(
+                      "text-xs transition-colors",
+                      isActive ? "text-blue-500 font-medium" : "text-[#8E8E93]"
+                    )}
+                  >
                     {item.label}
                   </span>
                 </Button>
@@ -241,4 +271,3 @@ export default function RitualsApp() {
     </>
   );
 }
-

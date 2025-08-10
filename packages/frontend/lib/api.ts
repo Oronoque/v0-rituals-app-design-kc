@@ -1,7 +1,6 @@
 import {
-  ApiError,
+  ApiErrorResponse,
   ApiSuccess,
-  AuthResponse,
   BatchCompleteRituals,
   CompleteRitual,
   CreateRitual,
@@ -17,84 +16,70 @@ import {
   UserProfileResponse,
 } from "@rituals/shared";
 
-// API Client for Rituals Backend
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  process.env.API_URL ??
-  "http://localhost:3001/api";
-
 // API Client Class
 export class ApiClient {
   private baseUrl: string;
-  private token: string | null = null;
-
-  constructor(baseUrl: string = API_BASE_URL) {
-    this.baseUrl = baseUrl;
-    // Load token from localStorage on client side
-    if (typeof window !== "undefined") {
-      this.token = localStorage.getItem("token");
+  private static instance: ApiClient | null = null;
+  private constructor() {
+    // API Client for Rituals Backend
+    let baseUrl = process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL;
+    if (!baseUrl) {
+      throw new Error("API_URL or NEXT_PUBLIC_API_URL is not set");
     }
+    baseUrl += "/api";
+    this.baseUrl = baseUrl;
+    // Stop using localStorage; cookies will carry the token
+  }
+
+  public static getInstance(): ApiClient {
+    if (!ApiClient.instance) {
+      ApiClient.instance = new ApiClient();
+    }
+    return ApiClient.instance;
   }
 
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiSuccess<T>> {
-    try {
-      const url = `${this.baseUrl}${endpoint}`;
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...(options.headers as Record<string, string>),
-      };
+    const url = `${this.baseUrl}${endpoint}`;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string>),
+    };
+    // With cookies, do not set Authorization header
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: "include",
+    });
 
-      if (this.token) {
-        headers.Authorization = `Bearer ${this.token}`;
-      }
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
-
-      const apiResponse = (await response.json()) as ApiSuccess<T> | ApiError;
-      if (apiResponse.success === false) {
-        throw apiResponse;
-      }
-      console.log("apiResponse", apiResponse);
-
-      return apiResponse;
-    } catch (error) {
-      console.error(error);
-      throw error;
+    const apiResponse = (await response.json()) as
+      | ApiSuccess<T>
+      | ApiErrorResponse;
+    if (apiResponse.status === "error") {
+      throw apiResponse;
     }
+    return apiResponse;
   }
   // Auth Methods
-  async login(credentials: LoginRequest): Promise<ApiSuccess<AuthResponse>> {
-    const response = await this.request<AuthResponse>("/auth/login", {
+  async login(
+    credentials: LoginRequest
+  ): Promise<ApiSuccess<UserProfileResponse>> {
+    const response = await this.request<UserProfileResponse>("/auth/login", {
       method: "POST",
       body: JSON.stringify(credentials),
     });
-
-    this.token = response.data.token;
-    if (typeof window !== "undefined") {
-      localStorage.setItem("token", response.data.token);
-    }
-
     return response;
   }
 
   async register(
     credentials: RegisterRequest
-  ): Promise<ApiSuccess<AuthResponse>> {
-    const response = await this.request<AuthResponse>("/auth/register", {
+  ): Promise<ApiSuccess<UserProfileResponse>> {
+    const response = await this.request<UserProfileResponse>("/auth/register", {
       method: "POST",
       body: JSON.stringify(credentials),
     });
-
-    this.token = response.data.token;
-    if (typeof window !== "undefined") {
-      localStorage.setItem("token", response.data.token);
-    }
-
     return response;
   }
 
@@ -102,22 +87,10 @@ export class ApiClient {
     return this.request<UserProfileResponse>("/auth/profile");
   }
 
-  async getUserStats(): Promise<
-    ApiSuccess<{
-      total_rituals: number;
-      public_rituals: number;
-      total_forks: number;
-      current_streak: number;
-    }>
-  > {
-    return this.request("/auth/stats");
-  }
-
-  logout(): void {
-    this.token = null;
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("token");
-    }
+  async logout(): Promise<ApiSuccess<void>> {
+    return this.request<void>("/auth/logout", {
+      method: "POST",
+    });
   }
 
   // Daily Schedule Methods
@@ -278,22 +251,10 @@ export class ApiClient {
       body: JSON.stringify(batchData),
     });
   }
-
-  // Helper Methods
-  isAuthenticated(): boolean {
-    return !!this.token;
-  }
-
-  setToken(token: string): void {
-    this.token = token;
-    if (typeof window !== "undefined") {
-      localStorage.setItem("token", token);
-    }
-  }
 }
 
 // Create a singleton instance
-export const apiClient = new ApiClient();
+export const apiClient = ApiClient.getInstance();
 
 // Helper functions for common operations
 export const api = {
@@ -301,9 +262,7 @@ export const api = {
   login: (credentials: LoginRequest) => apiClient.login(credentials),
   register: (credentials: RegisterRequest) => apiClient.register(credentials),
   getCurrentUser: () => apiClient.getCurrentUser(),
-  getUserStats: () => apiClient.getUserStats(),
   logout: () => apiClient.logout(),
-  isAuthenticated: () => apiClient.isAuthenticated(),
 
   // Daily Schedule
   getDailySchedule: (date: string) => apiClient.getDailySchedule(date),

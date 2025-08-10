@@ -2,34 +2,42 @@
 // COMMON API TYPES
 // ===========================================
 
-import { err, Result } from "neverthrow";
-import { User, UserProgress } from "./database-types";
+import { ZodError } from "zod";
+import { UserProgress, UserWithoutPassword } from "./database-types";
 import { requestContext } from "./request-id";
-import { ValidationErrorDetail } from "./utils";
+import {
+  convertZodErrorToValidationErrorDetail,
+  ValidationErrorDetail,
+} from "./utils";
 
 export class ApiError extends Error {
-  success: false;
-  status_message: string;
   status_code: number;
-  request_id: string;
+  request_id: string | undefined;
 
   constructor(message: string, status_code: number, cause?: unknown) {
     super(message, { cause });
 
     this.name = this.constructor.name;
-    this.status_message = getErrorCode(status_code);
     this.status_code = status_code;
     this.request_id = requestContext.requestId;
-    this.success = false;
-
     // Force stack trace to start from where the subclass was instantiated
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, this.constructor);
     }
   }
 
-  neverThrow() {
-    return err(this);
+  // neverThrow() {
+  //   return err(this);
+  // }
+
+  intoErrorResponse(): ApiErrorResponse {
+    return {
+      name: this.name,
+      message: this.message,
+      status: "error",
+      validation_errors:
+        this instanceof ValidationError ? this.validation_errors : undefined,
+    };
   }
 
   static parse(error: ApiError): ApiError {
@@ -77,7 +85,7 @@ export class InternalError extends ApiError {
 export class NotFoundError extends ApiError {
   constructor(message = "Resource not found", cause?: unknown) {
     super(message, 404, cause);
-    this.printError("NOT FOUND");
+    // this.printError("NOT FOUND");
   }
 }
 
@@ -91,14 +99,14 @@ export class BadRequestError extends ApiError {
 export class UnprocessableEntityError extends ApiError {
   constructor(message = "Unprocessable entity", cause?: unknown) {
     super(message, 422, cause);
-    this.printError("UNPROCESSABLE ENTITY");
+    // this.printError("UNPROCESSABLE ENTITY");
   }
 }
 
 export class TooManyRequestsError extends ApiError {
   constructor(message = "Too many requests", cause?: unknown) {
     super(message, 429, cause);
-    this.printError("TOO MANY REQUESTS");
+    // this.printError("TOO MANY REQUESTS");
   }
 }
 
@@ -110,29 +118,37 @@ export class UnauthorizedError extends ApiError {
 
 export class ValidationError extends ApiError {
   validation_errors: ValidationErrorDetail[];
-  constructor(validation_errors: ValidationErrorDetail[], cause?: unknown) {
+  constructor(
+    validation_errors: ValidationErrorDetail[] | ZodError,
+    cause?: unknown
+  ) {
     super("Validation failed", 400, cause);
-    this.validation_errors = validation_errors;
-    this.printError("VALIDATION ERROR");
+    if (validation_errors instanceof ZodError) {
+      this.validation_errors =
+        convertZodErrorToValidationErrorDetail(validation_errors);
+    } else {
+      this.validation_errors = validation_errors;
+    }
+    // this.printError("VALIDATION ERROR");
   }
 }
 
 export class ForbiddenError extends ApiError {
   constructor(message = "Forbidden", cause?: unknown) {
     super(message, 403, cause);
-    this.printError("FORBIDDEN");
+    // this.printError("FORBIDDEN");
   }
 }
 
 export class ConflictError extends ApiError {
   constructor(message: string, cause?: unknown) {
     super(message, 409, cause);
-    this.printError("CONFLICT");
+    // this.printError("CONFLICT");
   }
 }
 
 // Helper function to get error codes
-function getErrorCode(statusCode: number): string {
+export function getErrorCode(statusCode: number): string {
   switch (statusCode) {
     case 400:
       return "BAD_REQUEST";
@@ -156,13 +172,19 @@ function getErrorCode(statusCode: number): string {
 }
 
 export interface ApiSuccess<T> {
-  status_code: number;
   message: string;
   data: T;
-  success: true;
+  status: "success";
 }
 
-export type ApiResult<T> = Result<ApiSuccess<T>, ApiError>;
+export interface ApiErrorResponse {
+  name: string;
+  message: string;
+  status: "error";
+  validation_errors?: ValidationErrorDetail[];
+}
+
+export type ApiResult<T> = ApiSuccess<T> | ApiErrorResponse;
 
 export interface PaginationParams {
   page?: number | undefined;
@@ -182,11 +204,6 @@ export interface PaginatedResponse<T> {
 // AUTH TYPES
 // ===========================================
 
-export interface AuthResponse {
-  user: Omit<User, "password_hash">;
-  token: string;
-}
-
 export interface RefreshTokenRequest {
   refresh_token: string;
 }
@@ -195,7 +212,7 @@ export interface RefreshTokenRequest {
 // USER TYPES
 // ===========================================
 
-export interface UserProfileResponse extends Omit<User, "password_hash"> {
+export interface UserProfileResponse extends UserWithoutPassword {
   progress?: UserProgress | undefined;
 }
 
@@ -207,7 +224,7 @@ export interface UserStatsResponse {
 }
 
 export interface UsersResponse {
-  users: Omit<User, "password_hash">[];
+  users: UserWithoutPassword[];
   total: number;
   limit: number;
   offset: number;

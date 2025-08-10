@@ -1,6 +1,6 @@
 "use client";
 
-import { api, apiClient } from "@/lib/api";
+import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/query-client";
 import {
   BatchCompleteRituals,
@@ -23,27 +23,18 @@ import { toast } from "sonner";
 export function useCurrentUser() {
   return useQuery({
     queryKey: queryKeys.auth.user,
-    queryFn: api.getCurrentUser,
-    enabled: apiClient.isAuthenticated(),
-    retry: (failureCount, error: any) => {
-      // Don't retry on auth errors
-      if (
-        error.message?.includes("Unauthorized") ||
-        error.message?.includes("Invalid token")
-      ) {
-        return false;
+    queryFn: async () => {
+      try {
+        const user = await api.getCurrentUser();
+        console.log("user", user);
+        return user;
+      } catch (error) {
+        console.error("Error fetching user", error);
+        return null;
       }
-      return failureCount < 2;
     },
-  });
-}
-
-export function useUserStats() {
-  return useQuery({
-    queryKey: queryKeys.auth.stats,
-    queryFn: api.getUserStats,
-    enabled: apiClient.isAuthenticated(),
-    staleTime: 2 * 60 * 1000, // Stats update less frequently
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 
@@ -56,11 +47,27 @@ export function useLogin() {
     onSuccess: (data) => {
       // Cache user data immediately
       queryClient.setQueryData(queryKeys.auth.user, data);
-      toast.success(`Welcome back, ${data.data.user.email}!`);
+      toast.success(`Welcome back, ${data.data.email}!`);
       router.push("/");
     },
     onError: (error: any) => {
       toast.error(error.message || "Login failed");
+    },
+  });
+}
+
+export function useLogout() {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+
+  return useMutation({
+    mutationFn: () => api.logout(),
+    onSuccess: () => {
+      queryClient.clear();
+      router.push("/");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Logout failed");
     },
   });
 }
@@ -74,7 +81,7 @@ export function useRegister() {
     onSuccess: (data) => {
       // Cache user data immediately
       queryClient.setQueryData(queryKeys.auth.user, data);
-      toast.success(`Welcome to Rituals, ${data.data.user.email}!`);
+      toast.success(`Welcome to Rituals, ${data.data.email}!`);
       router.push("/");
     },
     onError: (error: ApiError) => {
@@ -83,30 +90,31 @@ export function useRegister() {
   });
 }
 
-export function useLogout() {
-  const queryClient = useQueryClient();
-  const router = useRouter();
+// export function useLogout() {
+//   const queryClient = useQueryClient();
+//   const router = useRouter();
 
-  return useMutation({
-    mutationFn: () => {
-      api.logout();
-      return Promise.resolve();
-    },
-    onSuccess: () => {
-      // Clear all cached data
-      queryClient.clear();
-      toast.success("Logged out successfully");
-      router.push("/");
-    },
-  });
-}
+//   return useMutation({
+//     mutationFn: () => {
+//       api.logout().catch((error) => {
+//         console.error("Logout failed", error);
+//       });
+//       return Promise.resolve();
+//     },
+//     onSuccess: () => {
+//       // Clear all cached data
+//       queryClient.clear();
+//       toast.success("Logged out successfully");
+//       router.push("/");
+//     },
+//   });
+// }
 
 // Daily Schedule Hooks
 export function useDailySchedule(date: string) {
   return useQuery({
     queryKey: queryKeys.daily.schedule(date),
     queryFn: () => api.getDailySchedule(date),
-    enabled: !!date && apiClient.isAuthenticated(),
     staleTime: 2 * 60 * 1000, // Cache for 2 minutes
   });
 }
@@ -122,7 +130,6 @@ export function useUserRituals(params?: {
   return useQuery({
     queryKey: queryKeys.rituals.user(params),
     queryFn: () => api.getUserRituals(params),
-    enabled: apiClient.isAuthenticated(),
     staleTime: 3 * 60 * 1000, // User's own rituals cache for 3 minutes
   });
 }
@@ -152,7 +159,6 @@ export function useRitualStats(id: string) {
   return useQuery({
     queryKey: queryKeys.rituals.stats(id),
     queryFn: () => api.getRitualStats(id),
-    enabled: !!id && apiClient.isAuthenticated(),
     staleTime: 5 * 60 * 1000, // Stats cache for 5 minutes
   });
 }
@@ -539,7 +545,7 @@ export function useAuth() {
 
   return {
     user,
-    isAuthenticated: !!user && apiClient.isAuthenticated(),
+    isAuthenticated: !!user,
     loading: isLoading,
     error,
     login: loginMutation.mutate,

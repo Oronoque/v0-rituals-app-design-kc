@@ -48,7 +48,6 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
 
   // Fetch user and daily schedule
   const { data: user } = useCurrentUser();
-  console.log("user data", user);
   const { data: schedule, isLoading, error, refetch } = useDailySchedule(today);
   const completeRitualMutation = useCompleteRitual();
   const deleteRitualMutation = useDeleteRitual();

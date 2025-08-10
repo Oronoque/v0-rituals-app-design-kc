@@ -1,4 +1,5 @@
 import compression from "compression";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
@@ -11,38 +12,59 @@ import dailyRitualRoutes from "./routes/daily-rituals";
 import ritualRoutes from "./routes/rituals";
 
 // Import middleware
-import { errorHandler, notFoundHandler } from "./middleware/error-handler";
+import { notFoundHandler } from "./middleware/error-handler";
 
 // Import database
-import { UserRole } from "@rituals/shared";
+import { requestContext, requestIdMiddleware, UserRole } from "@rituals/shared";
 import { closeConnection, testConnection } from "./database/connection";
-if (process.env.NODE_ENV !== "production") {
-  const originalLog = console.log;
 
-  console.log = function (...args) {
-    const stack = new Error().stack;
-    const callerLine = stack?.split("\n")[2];
+const originalLog = console.log;
 
-    const locationMatch = callerLine?.match(/\((.*):(\d+):(\d+)\)/);
+function customConsoleMethod(
+  originalMethod: (...args: unknown[]) => void,
+  isError: boolean,
+  ...args: unknown[]
+) {
+  // Get request ID from AsyncLocalStorage
+  const requestId = requestContext.requestId;
 
-    let location = "";
-    if (locationMatch) {
-      const [, file, line, col] = locationMatch;
-      location = `${file}:${line}:${col}`;
-    } else {
-      location = callerLine?.trim() || "";
-    }
+  // Get file location from stack trace
+  const stack = new Error().stack;
+  const callerLine = stack?.split("\n")[2];
+  const locationMatch = callerLine?.match(/\((.*):(\d+):(\d+)\)/);
 
-    // Add a newline before printing
-    originalLog.apply(console, [`\x1b[32m[${location}]\x1b[0m`, "\n", ...args]);
-  };
+  let location = "";
+  if (locationMatch) {
+    const [, file, line, col] = locationMatch;
+    location = `${file}:${line}:${col}`;
+  } else {
+    location = callerLine?.trim() || "";
+  }
+
+  // Build prefix with colors
+  const prefixParts = [];
+  if (requestId) {
+    prefixParts.push(`\x1b[36m[req:${requestId}]\x1b[0m`); // Cyan
+  }
+  prefixParts.push(`\x1b[32m[${location}]\x1b[0m`); // Green
+
+  const prefix = prefixParts.join(" ");
+
+  // Wrap the whole output in red if it's an error
+  if (isError) {
+    originalMethod(`\x1b[31m${prefix}\n`, ...args, "\x1b[0m");
+  } else {
+    originalMethod(`${prefix}\n`, ...args);
+  }
 }
+
+// Patch console methods
+console.log = function (...args) {
+  customConsoleMethod(originalLog, false, ...args);
+};
 
 // Load environment variables
 dotenv.config();
-console.log("NODE_ENV", process.env.NODE_ENV);
-console.log("API_URL", process.env.API_URL);
-console.log("FRONTEND_URL", process.env.FRONTEND_URL);
 
 const app = express();
 const PORT = process.env.API_PORT || 3001;
@@ -65,9 +87,10 @@ app.use(
     credentials: true,
   })
 );
+app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-
+app.use(requestIdMiddleware);
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -84,9 +107,6 @@ app.use("/api/daily-rituals", dailyRitualRoutes);
 
 // 404 handler for undefined routes
 app.use(notFoundHandler);
-
-// Global error handler (must be last)
-app.use(errorHandler);
 
 // Graceful shutdown
 const gracefulShutdown = async (signal: string) => {
@@ -118,12 +138,14 @@ async function startServer() {
       process.exit(1);
     }
 
+    const API_URL = process.env.API_URL || `http://localhost:${PORT}`;
     // Start HTTP server
     const server = app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📚 API docs: http://localhost:${PORT}/api`);
-      console.log(`🔍 Health check: http://localhost:${PORT}/health`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+      console.log(`🔍 Health check: ${API_URL}/health`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
+      console.log("API_URL", process.env.API_URL);
+      console.log("NEXT_PUBLIC_API_URL", process.env.NEXT_PUBLIC_API_URL);
+      console.log("FRONTEND_URL", process.env.FRONTEND_URL);
     });
 
     // Handle server errors

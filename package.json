@@ -12,7 +12,7 @@
     "build:frontend": "bun --filter @rituals/frontend build",
     "start:backend": "dotenv -e .env -- bun run --elide-lines 0 --filter @rituals/backend start",
     "start:frontend": "dotenv -e .env -- bun run --elide-lines 0 --filter @rituals/frontend start",
-    "start": "dotenv -e .env -- bunx concurrently  \"bun run start:backend\" \"bun run start:frontend\"",
+    "start": "dotenv -e .env -- bunx concurrently -names=server,client --prefix-colors=auto \"bun run start:backend\" \"bun run start:frontend\"",
     "predev": "echo 'Running pre-dev steps...' && bun run build:shared",
     "dev:shared": "dotenv -e .env -- bun run --filter=@rituals/shared dev ",
     "dev:backend": "dotenv -e .env -- bun run --elide-lines 0 --filter=@rituals/backend dev",

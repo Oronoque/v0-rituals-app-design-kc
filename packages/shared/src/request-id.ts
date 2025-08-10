@@ -22,12 +22,8 @@ class RequestContext {
     this.storage.run({ request_id }, callback);
   }
 
-  get requestId(): string {
-    return this.storage.getStore()?.request_id ?? this.generateRequestId();
-  }
-
-  private generateRequestId(): string {
-    return crypto.randomUUID();
+  get requestId(): string | undefined {
+    return this.storage.getStore()?.request_id;
   }
 }
 
