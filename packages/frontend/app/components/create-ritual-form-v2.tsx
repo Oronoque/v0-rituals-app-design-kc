@@ -13,38 +13,71 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateRitual } from "@/hooks/use-api";
+import {
+  useCreateRitual,
+  useExercises,
+  usePhysicalQuantities,
+} from "@/hooks/use-api";
 import { cn } from "@/lib/utils";
-import type { CreateRitual } from "@rituals/shared";
-import { ArrowLeft, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import type {
+  CreateRitualSchemaType,
+  ExerciseBodyPart,
+  ExerciseEquipment,
+  ExerciseMeasurementType,
+  StepType,
+} from "@rituals/shared";
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  MoreHorizontal,
+  Plus,
+  Search,
+  TrendingUp,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 // Import enum values from schema
-const EXERCISE_TYPES = [
-  "BODYWEIGHT", "STRENGTH", "POWERLIFTING", "CALISTHENIC", "PLYOMETRICS", 
-  "STRETCHING", "STRONGMAN", "CARDIO", "STABILIZATION", "POWER", 
-  "RESISTANCE", "CROSSFIT", "WEIGHTLIFTING"
-] as const;
-
-const PRIMARY_MUSCLE_GROUPS = [
-  "BICEPS", "SHOULDERS", "CHEST", "BACK", "GLUTES", "TRICEPS", 
-  "HAMSTRINGS", "QUADRICEPS", "FOREARMS", "CALVES", "TRAPS", 
-  "ABDOMINALS", "NECK", "LATS"
-] as const;
-
-const SECONDARY_MUSCLE_GROUPS = [
-  "ADDUCTORS", "ABDUCTORS", "OBLIQUES", "GROIN", "FULL_BODY", 
-  "ROTATOR_CUFF", "HIP_FLEXOR", "ACHILLES_TENDON", "FINGERS"
-] as const;
 
 const EQUIPMENT_TYPES = [
-  "DUMBBELL", "KETTLEBELLS", "BARBELL", "SMITH_MACHINE", "BODY_ONLY", 
-  "OTHER", "BANDS", "EZ_BAR", "MACHINE", "DESK", "PULLUP_BAR", "NONE", 
-  "CABLE", "MEDICINE_BALL", "SWISS_BALL", "FOAM_ROLL", "WEIGHT_PLATE", 
-  "TRX", "BOX", "ROPES", "SPIN_BIKE", "STEP", "BOSU", "TYRE", "SANDBAG", 
-  "POLE", "BENCH", "WALL", "BAR", "RACK", "CAR", "SLED", "CHAIN", 
-  "SKIERG", "ROPE", "NA"
+  "DUMBBELL",
+  "KETTLEBELLS",
+  "BARBELL",
+  "SMITH_MACHINE",
+  "BODY_ONLY",
+  "OTHER",
+  "BANDS",
+  "EZ_BAR",
+  "MACHINE",
+  "DESK",
+  "PULLUP_BAR",
+  "NONE",
+  "CABLE",
+  "MEDICINE_BALL",
+  "SWISS_BALL",
+  "FOAM_ROLL",
+  "WEIGHT_PLATE",
+  "TRX",
+  "BOX",
+  "ROPES",
+  "SPIN_BIKE",
+  "STEP",
+  "BOSU",
+  "TYRE",
+  "SANDBAG",
+  "POLE",
+  "BENCH",
+  "WALL",
+  "BAR",
+  "RACK",
+  "CAR",
+  "SLED",
+  "CHAIN",
+  "SKIERG",
+  "ROPE",
+  "NA",
 ] as const;
 
 const MECHANICS_TYPES = ["ISOLATION", "COMPOUND"] as const;
@@ -52,29 +85,29 @@ const MECHANICS_TYPES = ["ISOLATION", "COMPOUND"] as const;
 const PROGRESSION_TYPES = ["reps", "weight", "time", "distance"] as const;
 
 // Helper component for multi-select with badges
-function MultiSelectBadges({ 
-  options, 
-  selected, 
-  onChange, 
-  label, 
-  placeholder 
+function MultiSelectBadges({
+  options,
+  selected,
+  onChange,
+  label,
+  placeholder,
 }: {
-  options: readonly string[]
-  selected: string[]
-  onChange: (values: string[]) => void
-  label: string
-  placeholder?: string
+  options: readonly string[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+  label: string;
+  placeholder?: string;
 }) {
-  const [isOpen, setIsOpen] = useState(false)
-  
+  const [isOpen, setIsOpen] = useState(false);
+
   const toggleOption = (option: string) => {
     if (selected.includes(option)) {
-      onChange(selected.filter(item => item !== option))
+      onChange(selected.filter((item) => item !== option));
     } else {
-      onChange([...selected, option])
+      onChange([...selected, option]);
     }
-  }
-  
+  };
+
   return (
     <div className="space-y-2">
       <Label className="text-white">{label}</Label>
@@ -85,10 +118,12 @@ function MultiSelectBadges({
           className="w-full justify-between bg-[#2C2C2E] border-[#2C2C2E] text-white hover:bg-[#3C3C3E]"
           onClick={() => setIsOpen(!isOpen)}
         >
-          {selected.length > 0 ? `${selected.length} selected` : placeholder || `Select ${label}`}
+          {selected.length > 0
+            ? `${selected.length} selected`
+            : placeholder || `Select ${label}`}
           <ChevronDown className="h-4 w-4" />
         </Button>
-        
+
         {isOpen && (
           <div className="absolute z-10 w-full mt-1 bg-[#2C2C2E] border border-[#3C3C3E] rounded-md shadow-lg max-h-48 overflow-y-auto">
             {options.map((option) => (
@@ -97,17 +132,19 @@ function MultiSelectBadges({
                 className="flex items-center space-x-2 px-3 py-2 hover:bg-[#3C3C3E] cursor-pointer"
                 onClick={() => toggleOption(option)}
               >
-                <Checkbox 
+                <Checkbox
                   checked={selected.includes(option)}
                   className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                 />
-                <span className="text-white text-sm">{option.replace(/_/g, ' ')}</span>
+                <span className="text-white text-sm">
+                  {option.replace(/_/g, " ")}
+                </span>
               </div>
             ))}
           </div>
         )}
       </div>
-      
+
       {selected.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {selected.map((item) => (
@@ -116,7 +153,7 @@ function MultiSelectBadges({
               variant="secondary"
               className="bg-blue-600/20 text-blue-300 border-blue-600/30"
             >
-              {item.replace(/_/g, ' ')}
+              {item.replace(/_/g, " ")}
               <X
                 className="h-3 w-3 ml-1 cursor-pointer"
                 onClick={() => toggleOption(item)}
@@ -126,7 +163,7 @@ function MultiSelectBadges({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 interface CreateRitualFormProps {
@@ -137,7 +174,7 @@ interface CreateRitualFormProps {
 // Frontend-specific interfaces for form state
 interface FormStepDefinition {
   id: string;
-  type: "boolean" | "counter" | "qna" | "timer" | "scale" | "exercise_set";
+  type: StepType;
   name: string;
   config: any;
   is_required: boolean;
@@ -199,9 +236,9 @@ const STEP_TYPES = [
     description: "Rate on a scale (1-10)",
   },
   {
-    value: "exercise_set",
-    label: "Exercise Set",
-    description: "Track workout sets and reps",
+    value: "workout",
+    label: "Workout",
+    description: "Exercise with sets and reps",
   },
 ];
 
@@ -261,14 +298,11 @@ export function CreateRitualFormV2({
       setCurrentTab(currentTab - 1);
     }
   };
-  
+
   const addGear = () => {
     const trimmedGear = gearInput.trim();
-  
-    if (
-      trimmedGear &&
-      !formData.ritual.gear.includes(trimmedGear)
-    ) {
+
+    if (trimmedGear && !formData.ritual.gear.includes(trimmedGear)) {
       setFormData({
         ...formData,
         ritual: {
@@ -299,7 +333,10 @@ export function CreateRitualFormV2({
         ...formData,
         frequency: {
           ...formData.frequency,
-          specific_dates: [...formData.frequency.specific_dates, specificDateInput],
+          specific_dates: [
+            ...formData.frequency.specific_dates,
+            specificDateInput,
+          ],
         },
       });
       setSpecificDateInput("");
@@ -311,7 +348,9 @@ export function CreateRitualFormV2({
       ...formData,
       frequency: {
         ...formData.frequency,
-        specific_dates: formData.frequency.specific_dates.filter((d) => d !== date),
+        specific_dates: formData.frequency.specific_dates.filter(
+          (d) => d !== date
+        ),
       },
     });
   };
@@ -357,29 +396,9 @@ export function CreateRitualFormV2({
           scale_min: 1,
           scale_max: 10,
         };
-      case "exercise_set":
+      case "workout":
         return {
-          question: "Complete this exercise",
-          target_sets: 3,
-          target_reps: 10,
-          target_weight: 0,
-          rest_time_seconds: 60,
-          progression_type: "reps",
-          exercise: {
-            name: "Push-ups",
-            type: ["BODYWEIGHT"],
-            primary_muscles: ["CHEST"],
-            secondary_muscles: [],
-            equipment: ["BODY_ONLY"],
-            mechanics: "COMPOUND",
-            difficulty: 3,
-            instructions: [
-              "Get into push-up position",
-              "Lower body until chest nearly touches floor",
-              "Push back up",
-            ],
-            tips: [],
-          },
+          workout_exercises: [],
         };
       default:
         return {};
@@ -457,7 +476,7 @@ export function CreateRitualFormV2({
       toast.error("Please enter a ritual name");
       return;
     }
-    
+
     if (!formData.ritual.category) {
       toast.error("Please select a category");
       return;
@@ -470,33 +489,65 @@ export function CreateRitualFormV2({
 
     try {
       // Transform formData to API format
-      const ritualData: CreateRitual = {
+      const ritualData: CreateRitualSchemaType = {
         ritual: {
           name: formData.ritual.name,
-          description: formData.ritual.description || null,
+          description: formData.ritual.description,
           category: formData.ritual.category as any,
-          location: formData.ritual.location || null,
-          gear: formData.ritual.gear.length > 0 ? formData.ritual.gear : null,
+          location: formData.ritual.location,
+          gear: formData.ritual.gear.length > 0 ? formData.ritual.gear : [],
           is_public: formData.ritual.is_public,
           is_active: formData.ritual.is_active,
         },
         frequency: {
           frequency_type: formData.frequency.frequency_type as any,
           frequency_interval: formData.frequency.frequency_interval,
-          days_of_week: formData.frequency.days_of_week.length > 0 ? formData.frequency.days_of_week : null,
-          specific_dates: formData.frequency.specific_dates.length > 0 ? formData.frequency.specific_dates : null,
+          days_of_week:
+            formData.frequency.days_of_week.length > 0
+              ? formData.frequency.days_of_week
+              : undefined,
+          specific_dates:
+            formData.frequency.specific_dates.length > 0
+              ? formData.frequency.specific_dates
+              : undefined,
         },
-        // @ts-expect-error - TODO: fix this
-        step_definitions: formData.step_definitions.map((step) => ({
-          order_index: step.order_index,
-          type: step.type as any,
-          name: step.name,
-          config: {
-            type: step.type,
-            config: step.config,
-          },
-          is_required: step.is_required,
-        })),
+
+        step_definitions: formData.step_definitions.map((step) => {
+          const baseStep = {
+            order_index: step.order_index,
+            type: step.type as any,
+            name: step.name,
+            is_required: step.is_required,
+          };
+
+          // Add type-specific fields based on step type
+          switch (step.type) {
+            case "counter":
+              return {
+                ...baseStep,
+                target_count_value: step.config.target_count_value,
+                target_count_unit: step.config.target_count_unit,
+              };
+            case "timer":
+              return {
+                ...baseStep,
+                target_seconds: step.config.target_seconds,
+              };
+            case "scale":
+              return {
+                ...baseStep,
+                min_value: step.config.min_value,
+                max_value: step.config.max_value,
+              };
+            case "workout":
+              return {
+                ...baseStep,
+                workout_exercises: step.config.workout_exercises || [],
+              };
+            default:
+              return baseStep;
+          }
+        }),
       };
 
       // Call the API using the mutation
@@ -968,11 +1019,13 @@ export function CreateRitualFormV2({
                       formData.frequency.days_of_week.length > 0 && (
                         <p>
                           Days:{" "}
-                          {formData.frequency.days_of_week.map(
-                            (d) =>
-                                    DAYS_OF_WEEK.find((day) => day.value === d)
-                                ?.label
-                          ).join(", ")}
+                          {formData.frequency.days_of_week
+                            .map(
+                              (d) =>
+                                DAYS_OF_WEEK.find((day) => day.value === d)
+                                  ?.label
+                            )
+                            .join(", ")}
                         </p>
                       )}
                     {formData.frequency.frequency_type === "custom" &&
@@ -1198,52 +1251,7 @@ function StepConfigEditor({ step, onUpdateConfig }: StepConfigEditorProps) {
       );
 
     case "counter":
-      return (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label className="text-white">Question</Label>
-            <Input
-              value={step.config.question || ""}
-              onChange={(e) =>
-                onUpdateConfig(step.id, "question", e.target.value)
-              }
-              placeholder="e.g., How many reps did you do?"
-              className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-white">Target Value</Label>
-              <Input
-                type="number"
-                value={step.config.target_value || ""}
-                onChange={(e) =>
-                  onUpdateConfig(
-                    step.id,
-                    "target_value",
-                    parseInt(e.target.value) || 0
-                  )
-                }
-                className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-white">Unit</Label>
-              <Input
-                value={step.config.unit?.unit || ""}
-                onChange={(e) =>
-                  onUpdateConfig(step.id, "unit", {
-                    ...step.config.unit,
-                    unit: e.target.value,
-                  })
-                }
-                placeholder="e.g., reps, minutes, cups"
-                className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
-              />
-            </div>
-          </div>
-        </div>
-      );
+      return <CounterStepEditor step={step} onUpdateConfig={onUpdateConfig} />;
 
     case "qna":
       return (
@@ -1342,288 +1350,944 @@ function StepConfigEditor({ step, onUpdateConfig }: StepConfigEditorProps) {
         </div>
       );
 
-    case "exercise_set":
+    case "workout":
       return (
-        <div className="space-y-4">
-          {/* Exercise Basic Info */}
-          <div className="space-y-2">
-            <Label className="text-white">Exercise Name</Label>
-            <Input
-              value={step.config.exercise?.name || ""}
-              onChange={(e) =>
-                onUpdateConfig(step.id, "exercise", {
-                  ...step.config.exercise,
-                  name: e.target.value,
-                })
-              }
-              placeholder="e.g., Push-ups"
-              className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
-            />
-          </div>
-
-          {/* Target Values */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label className="text-white">Target Sets</Label>
-              <Input
-                type="number"
-                value={step.config.target_sets || ""}
-                onChange={(e) =>
-                  onUpdateConfig(
-                    step.id,
-                    "target_sets",
-                    parseInt(e.target.value) || 0
-                  )
-                }
-                className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-white">Target Reps</Label>
-              <Input
-                type="number"
-                value={step.config.target_reps || ""}
-                onChange={(e) =>
-                  onUpdateConfig(
-                    step.id,
-                    "target_reps",
-                    parseInt(e.target.value) || 0
-                  )
-                }
-                className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-white">Target Weight</Label>
-              <Input
-                type="number"
-                value={step.config.target_weight || ""}
-                onChange={(e) =>
-                  onUpdateConfig(
-                    step.id,
-                    "target_weight",
-                    parseInt(e.target.value) || 0
-                  )
-                }
-                className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-white">Rest Time (sec)</Label>
-              <Input
-                type="number"
-                value={step.config.rest_time_seconds || ""}
-                onChange={(e) =>
-                  onUpdateConfig(
-                    step.id,
-                    "rest_time_seconds",
-                    parseInt(e.target.value) || 0
-                  )
-                }
-                className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
-              />
-            </div>
-          </div>
-
-          {/* Exercise Classification */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-white">Progression Type</Label>
-              <Select
-                value={step.config.progression_type || ""}
-                onValueChange={(value) =>
-                  onUpdateConfig(step.id, "progression_type", value)
-                }
-              >
-                <SelectTrigger className="bg-[#2C2C2E] border-[#2C2C2E] text-white">
-                  <SelectValue placeholder="Select progression type" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#2C2C2E] border-[#3C3C3E]">
-                  {PROGRESSION_TYPES.map((type) => (
-                    <SelectItem key={type} value={type} className="text-white">
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-white">Mechanics</Label>
-              <Select
-                value={step.config.exercise?.mechanics || ""}
-                onValueChange={(value) =>
-                  onUpdateConfig(step.id, "exercise", {
-                    ...step.config.exercise,
-                    mechanics: value,
-                  })
-                }
-              >
-                <SelectTrigger className="bg-[#2C2C2E] border-[#2C2C2E] text-white">
-                  <SelectValue placeholder="Select mechanics" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#2C2C2E] border-[#3C3C3E]">
-                  {MECHANICS_TYPES.map((type) => (
-                    <SelectItem key={type} value={type} className="text-white">
-                      {type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Multi-select Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <MultiSelectBadges
-              options={EXERCISE_TYPES}
-              selected={step.config.exercise?.type || []}
-              onChange={(values) =>
-                onUpdateConfig(step.id, "exercise", {
-                  ...step.config.exercise,
-                  type: values,
-                })
-              }
-              label="Exercise Types"
-              placeholder="Select exercise types"
-            />
-
-            <MultiSelectBadges
-              options={EQUIPMENT_TYPES}
-              selected={step.config.exercise?.equipment || []}
-              onChange={(values) =>
-                onUpdateConfig(step.id, "exercise", {
-                  ...step.config.exercise,
-                  equipment: values,
-                })
-              }
-              label="Equipment"
-              placeholder="Select equipment"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <MultiSelectBadges
-              options={PRIMARY_MUSCLE_GROUPS}
-              selected={step.config.exercise?.primary_muscles || []}
-              onChange={(values) =>
-                onUpdateConfig(step.id, "exercise", {
-                  ...step.config.exercise,
-                  primary_muscles: values,
-                })
-              }
-              label="Primary Muscles"
-              placeholder="Select primary muscles"
-            />
-
-            <MultiSelectBadges
-              options={SECONDARY_MUSCLE_GROUPS}
-              selected={step.config.exercise?.secondary_muscles || []}
-              onChange={(values) =>
-                onUpdateConfig(step.id, "exercise", {
-                  ...step.config.exercise,
-                  secondary_muscles: values,
-                })
-              }
-              label="Secondary Muscles"
-              placeholder="Select secondary muscles"
-            />
-          </div>
-
-          {/* Difficulty */}
-          <div className="space-y-2">
-            <Label className="text-white">Difficulty (1-5)</Label>
-            <Select
-              value={step.config.exercise?.difficulty?.toString() || ""}
-              onValueChange={(value) =>
-                onUpdateConfig(step.id, "exercise", {
-                  ...step.config.exercise,
-                  difficulty: parseInt(value),
-                })
-              }
-            >
-              <SelectTrigger className="bg-[#2C2C2E] border-[#2C2C2E] text-white">
-                <SelectValue placeholder="Select difficulty" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#2C2C2E] border-[#3C3C3E]">
-                {[1, 2, 3, 4, 5].map((level) => (
-                  <SelectItem key={level} value={level.toString()} className="text-white">
-                    {level} - {['Beginner', 'Easy', 'Moderate', 'Hard', 'Expert'][level - 1]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Instructions */}
-          <div className="space-y-2">
-            <Label className="text-white">Instructions</Label>
-            <Textarea
-              value={step.config.exercise?.instructions?.join('\n') || ""}
-              onChange={(e) =>
-                onUpdateConfig(step.id, "exercise", {
-                  ...step.config.exercise,
-                  instructions: e.target.value.split('\n').filter(line => line.trim()),
-                })
-              }
-              placeholder="Enter each instruction on a new line..."
-              className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
-              rows={4}
-            />
-          </div>
-
-          {/* Tips */}
-          <div className="space-y-2">
-            <Label className="text-white">Tips (Optional)</Label>
-            <Textarea
-              value={step.config.exercise?.tips?.join('\n') || ""}
-              onChange={(e) =>
-                onUpdateConfig(step.id, "exercise", {
-                  ...step.config.exercise,
-                  tips: e.target.value.split('\n').filter(line => line.trim()),
-                })
-              }
-              placeholder="Enter each tip on a new line..."
-              className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
-              rows={3}
-            />
-          </div>
-
-          {/* Media URLs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-white">Video URL (Optional)</Label>
-              <Input
-                value={step.config.exercise?.video_url || ""}
-                onChange={(e) =>
-                  onUpdateConfig(step.id, "exercise", {
-                    ...step.config.exercise,
-                    video_url: e.target.value,
-                  })
-                }
-                placeholder="https://example.com/video"
-                className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-white">Image URL (Optional)</Label>
-              <Input
-                value={step.config.exercise?.image_url || ""}
-                onChange={(e) =>
-                  onUpdateConfig(step.id, "exercise", {
-                    ...step.config.exercise,
-                    image_url: e.target.value,
-                  })
-                }
-                placeholder="https://example.com/image"
-                className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
-              />
-            </div>
-          </div>
-        </div>
+        <SimpleWorkoutStepEditor step={step} onUpdateConfig={onUpdateConfig} />
       );
 
     default:
       return null;
   }
+}
+
+// Counter Step Editor Component
+function CounterStepEditor({
+  step,
+  onUpdateConfig,
+}: {
+  step: FormStepDefinition;
+  onUpdateConfig: (stepId: string, key: string, value: any) => void;
+}) {
+  const { data: physicalQuantitiesData, isLoading } = usePhysicalQuantities();
+  const physicalQuantities = physicalQuantitiesData?.physical_quantities || [];
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="text-white">Target Count Value</Label>
+          <Input
+            type="number"
+            step="0.1"
+            value={step.config.target_count_value || ""}
+            onChange={(e) =>
+              onUpdateConfig(
+                step.id,
+                "target_count_value",
+                parseFloat(e.target.value) || undefined
+              )
+            }
+            placeholder="e.g., 10, 2.5"
+            className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-white">Unit</Label>
+          {isLoading ? (
+            <div className="text-[#AEAEB2] text-sm py-2">Loading units...</div>
+          ) : (
+            <Select
+              value={step.config.target_count_unit || ""}
+              onValueChange={(value) =>
+                onUpdateConfig(step.id, "target_count_unit", value)
+              }
+            >
+              <SelectTrigger className="bg-[#2C2C2E] border-[#2C2C2E] text-white">
+                <SelectValue placeholder="Select a unit..." />
+              </SelectTrigger>
+              <SelectContent className="bg-[#2C2C2E] border-[#3C3C3E] max-h-60">
+                {physicalQuantities.map((quantity) => (
+                  <SelectItem
+                    key={quantity.id}
+                    value={quantity.id}
+                    className="text-white"
+                  >
+                    <div className="flex flex-col">
+                      <span>{quantity.name}</span>
+                      <span className="text-xs text-[#AEAEB2] capitalize">
+                        {/* Display unit dimensions in a readable way */}
+                        {quantity.m_exp !== 0 &&
+                          `m${quantity.m_exp !== 1 ? `^${quantity.m_exp}` : ""}`}
+                        {quantity.kg_exp !== 0 &&
+                          ` kg${quantity.kg_exp !== 1 ? `^${quantity.kg_exp}` : ""}`}
+                        {quantity.s_exp !== 0 &&
+                          ` s${quantity.s_exp !== 1 ? `^${quantity.s_exp}` : ""}`}
+                        {quantity.A_exp !== 0 &&
+                          ` A${quantity.A_exp !== 1 ? `^${quantity.A_exp}` : ""}`}
+                        {quantity.K_exp !== 0 &&
+                          ` K${quantity.K_exp !== 1 ? `^${quantity.K_exp}` : ""}`}
+                        {quantity.mol_exp !== 0 &&
+                          ` mol${quantity.mol_exp !== 1 ? `^${quantity.mol_exp}` : ""}`}
+                        {quantity.cd_exp !== 0 &&
+                          ` cd${quantity.cd_exp !== 1 ? `^${quantity.cd_exp}` : ""}`}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      </div>
+
+      {step.config.target_count_unit && (
+        <div className="mt-2 p-3 bg-[#3C3C3E]/50 rounded">
+          <p className="text-[#AEAEB2] text-sm">
+            <strong>Selected Unit:</strong>{" "}
+            {physicalQuantities.find(
+              (q) => q.id === step.config.target_count_unit
+            )?.name || "Unknown"}
+          </p>
+          <p className="text-[#AEAEB2] text-xs mt-1">
+            Users will input how many {step.config.target_count_value || "X"}{" "}
+            {physicalQuantities.find(
+              (q) => q.id === step.config.target_count_unit
+            )?.name || "units"}{" "}
+            they completed.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Simple Workout Step Editor - opens dialog
+function SimpleWorkoutStepEditor({
+  step,
+  onUpdateConfig,
+}: {
+  step: FormStepDefinition;
+  onUpdateConfig: (stepId: string, key: string, value: any) => void;
+}) {
+  const [showWorkoutDialog, setShowWorkoutDialog] = useState(false);
+  const workoutExercises = step.config.workout_exercises || [];
+
+  return (
+    <>
+      <div className="space-y-4">
+        <div className="border border-[#3C3C3E] rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-white font-medium">Workout Configuration</h4>
+            <Button
+              onClick={() => setShowWorkoutDialog(true)}
+              className="bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              Configure Workout
+            </Button>
+          </div>
+
+          {workoutExercises.length === 0 ? (
+            <p className="text-[#AEAEB2] text-sm">
+              No exercises configured. Click "Configure Workout" to add
+              exercises and sets.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-[#AEAEB2] text-sm">
+                {workoutExercises.length} exercise
+                {workoutExercises.length !== 1 ? "s" : ""} configured
+              </p>
+              <div className="text-xs text-[#AEAEB2]">
+                {workoutExercises.map((ex, i) => (
+                  <div key={i}>
+                    • Exercise {i + 1}: {ex.workout_sets.length} set
+                    {ex.workout_sets.length !== 1 ? "s" : ""}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <WorkoutDialog
+        isOpen={showWorkoutDialog}
+        onClose={() => setShowWorkoutDialog(false)}
+        step={step}
+        onUpdateConfig={onUpdateConfig}
+      />
+    </>
+  );
+}
+
+// New Workout Step Editor Component
+function WorkoutStepEditor({
+  step,
+  onUpdateConfig,
+}: {
+  step: FormStepDefinition;
+  onUpdateConfig: (stepId: string, key: string, value: any) => void;
+}) {
+  const { data: exercisesData, isLoading } = useExercises();
+  const exercises = exercisesData?.exercises || [];
+
+  // Initialize workout_exercises if not exists
+  const workoutExercises = step.config.workout_exercises || [];
+
+  const addExercise = () => {
+    const newExercise = {
+      exercise_id: "",
+      exercise_measurement_type: "weight_reps" as ExerciseMeasurementType,
+      order_index: workoutExercises.length,
+      workout_sets: [
+        {
+          set_number: 1,
+          target_weight_kg: undefined,
+          target_reps: undefined,
+          target_seconds: undefined,
+          target_distance_m: undefined,
+        },
+      ],
+    };
+    onUpdateConfig(step.id, "workout_exercises", [
+      ...workoutExercises,
+      newExercise,
+    ]);
+  };
+
+  const updateExercise = (exerciseIndex: number, field: string, value: any) => {
+    const updated = [...workoutExercises];
+    if (field === "exercise_id") {
+      // When exercise changes, find its measurement type and reset sets
+      const selectedExercise = exercises.find((ex) => ex.id === value);
+      if (selectedExercise) {
+        updated[exerciseIndex] = {
+          ...updated[exerciseIndex],
+          exercise_id: value,
+          exercise_measurement_type: selectedExercise.measurement_type,
+          workout_sets: [
+            {
+              set_number: 1,
+              target_weight_kg: undefined,
+              target_reps: undefined,
+              target_seconds: undefined,
+              target_distance_m: undefined,
+            },
+          ],
+        };
+      }
+    } else {
+      updated[exerciseIndex] = { ...updated[exerciseIndex], [field]: value };
+    }
+    onUpdateConfig(step.id, "workout_exercises", updated);
+  };
+
+  const removeExercise = (exerciseIndex: number) => {
+    const updated = workoutExercises.filter((_, i) => i !== exerciseIndex);
+    onUpdateConfig(step.id, "workout_exercises", updated);
+  };
+
+  const addSet = (exerciseIndex: number) => {
+    const updated = [...workoutExercises];
+    const currentSets = updated[exerciseIndex].workout_sets;
+    const newSet = {
+      set_number: currentSets.length + 1,
+      target_weight_kg: undefined,
+      target_reps: undefined,
+      target_seconds: undefined,
+      target_distance_m: undefined,
+    };
+    updated[exerciseIndex].workout_sets = [...currentSets, newSet];
+    onUpdateConfig(step.id, "workout_exercises", updated);
+  };
+
+  const updateSet = (
+    exerciseIndex: number,
+    setIndex: number,
+    field: string,
+    value: any
+  ) => {
+    const updated = [...workoutExercises];
+    updated[exerciseIndex].workout_sets[setIndex] = {
+      ...updated[exerciseIndex].workout_sets[setIndex],
+      [field]: value,
+    };
+    onUpdateConfig(step.id, "workout_exercises", updated);
+  };
+
+  const removeSet = (exerciseIndex: number, setIndex: number) => {
+    const updated = [...workoutExercises];
+    updated[exerciseIndex].workout_sets = updated[
+      exerciseIndex
+    ].workout_sets.filter((_, i) => i !== setIndex);
+    // Renumber sets
+    updated[exerciseIndex].workout_sets.forEach((set, i) => {
+      set.set_number = i + 1;
+    });
+    onUpdateConfig(step.id, "workout_exercises", updated);
+  };
+
+  const getFieldsForMeasurementType = (
+    measurementType: ExerciseMeasurementType
+  ) => {
+    switch (measurementType) {
+      case "weight_reps":
+        return ["target_weight_kg", "target_reps"];
+      case "reps":
+        return ["target_reps"];
+      case "time":
+        return ["target_seconds"];
+      case "distance_time":
+        return ["target_distance_m", "target_seconds"];
+      default:
+        return [];
+    }
+  };
+
+  const getFieldLabel = (field: string) => {
+    switch (field) {
+      case "target_weight_kg":
+        return "Weight (kg)";
+      case "target_reps":
+        return "Reps";
+      case "target_seconds":
+        return "Time (sec)";
+      case "target_distance_m":
+        return "Distance (m)";
+      default:
+        return field;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-white font-medium">Workout Exercises</h3>
+        <Button
+          onClick={addExercise}
+          variant="outline"
+          size="sm"
+          className="border-blue-500 text-blue-400 hover:bg-blue-500/10"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Add Exercise
+        </Button>
+      </div>
+
+      {isLoading && (
+        <div className="text-[#AEAEB2] text-center py-4">
+          Loading exercises...
+        </div>
+      )}
+
+      {workoutExercises.length === 0 && !isLoading && (
+        <div className="text-center py-8 text-[#AEAEB2] border border-dashed border-[#3C3C3E] rounded-lg">
+          <p>No exercises added yet. Click "Add Exercise" to get started.</p>
+        </div>
+      )}
+
+      {workoutExercises.map((workoutExercise, exerciseIndex) => {
+        const selectedExercise = exercises.find(
+          (ex) => ex.id === workoutExercise.exercise_id
+        );
+        const measurementType = workoutExercise.exercise_measurement_type;
+        const visibleFields = getFieldsForMeasurementType(measurementType);
+
+        return (
+          <Card key={exerciseIndex} className="bg-[#3C3C3E] border-[#4C4C4E]">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-white text-lg">
+                  Exercise {exerciseIndex + 1}
+                </CardTitle>
+                <Button
+                  onClick={() => removeExercise(exerciseIndex)}
+                  variant="outline"
+                  size="sm"
+                  className="border-red-500 text-red-400 hover:bg-red-500/10"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Exercise Selection */}
+              <div className="space-y-2">
+                <Label className="text-white">Select Exercise</Label>
+                <Select
+                  value={workoutExercise.exercise_id}
+                  onValueChange={(value) =>
+                    updateExercise(exerciseIndex, "exercise_id", value)
+                  }
+                >
+                  <SelectTrigger className="bg-[#2C2C2E] border-[#2C2C2E] text-white">
+                    <SelectValue placeholder="Choose an exercise..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#2C2C2E] border-[#3C3C3E] max-h-60">
+                    {exercises.map((exercise) => (
+                      <SelectItem
+                        key={exercise.id}
+                        value={exercise.id}
+                        className="text-white"
+                      >
+                        <div className="flex flex-col">
+                          <span>{exercise.name}</span>
+                          <span className="text-xs text-[#AEAEB2]">
+                            {exercise.body_part} •{" "}
+                            {exercise.measurement_type.replace("_", " ")}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedExercise?.equipment && (
+                  <div className="text-xs text-[#AEAEB2] mt-1">
+                    <span className="inline-block bg-[#2C2C2E] px-2 py-1 rounded mr-2">
+                      {selectedExercise.body_part}
+                    </span>
+                    <span className="inline-block bg-[#2C2C2E] px-2 py-1 rounded mr-2">
+                      {selectedExercise.measurement_type.replace("_", " ")}
+                    </span>
+                    {selectedExercise.equipment.map((eq, i) => (
+                      <span
+                        key={i}
+                        className="inline-block bg-[#2C2C2E] px-2 py-1 rounded mr-2"
+                      >
+                        {eq.replace("_", " ")}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Workout Sets */}
+              {workoutExercise.exercise_id && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-white">Sets</Label>
+                    <Button
+                      onClick={() => addSet(exerciseIndex)}
+                      variant="outline"
+                      size="sm"
+                      className="border-green-500 text-green-400 hover:bg-green-500/10"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Set
+                    </Button>
+                  </div>
+
+                  {workoutExercise.workout_sets.map((set, setIndex) => (
+                    <div
+                      key={setIndex}
+                      className="border border-[#2C2C2E] rounded p-3 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-white font-medium">
+                          Set {set.set_number}
+                        </span>
+                        {workoutExercise.workout_sets.length > 1 && (
+                          <Button
+                            onClick={() => removeSet(exerciseIndex, setIndex)}
+                            variant="outline"
+                            size="sm"
+                            className="border-red-500 text-red-400 hover:bg-red-500/10"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        {visibleFields.map((field) => (
+                          <div key={field} className="space-y-1">
+                            <Label className="text-white text-sm">
+                              {getFieldLabel(field)}
+                            </Label>
+                            <Input
+                              type="number"
+                              step={field === "target_weight_kg" ? "0.1" : "1"}
+                              value={(set as any)[field] || ""}
+                              onChange={(e) =>
+                                updateSet(
+                                  exerciseIndex,
+                                  setIndex,
+                                  field,
+                                  field === "target_weight_kg"
+                                    ? parseFloat(e.target.value) || undefined
+                                    : parseInt(e.target.value) || undefined
+                                )
+                              }
+                              className="bg-[#2C2C2E] border-[#2C2C2E] text-white"
+                              placeholder="0"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+// Exercise Selection Dialog Component
+function ExerciseSelectionDialog({
+  isOpen,
+  onClose,
+  onSelectExercise,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelectExercise: (exercise: any) => void;
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedBodyPart, setSelectedBodyPart] = useState<
+    ExerciseBodyPart | "all_body_parts"
+  >("all_body_parts");
+  const [selectedEquipment, setSelectedEquipment] = useState<
+    ExerciseEquipment | "all_equipment"
+  >("all_equipment");
+
+  const { data: exercisesData, isLoading } = useExercises({
+    search: searchTerm || undefined,
+    body_part:
+      selectedBodyPart === "all_body_parts" ? undefined : selectedBodyPart,
+    equipment:
+      selectedEquipment === "all_equipment" ? undefined : selectedEquipment,
+    limit: 50,
+  });
+
+  const exercises = exercisesData?.exercises || [];
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-[#1C1C1E] rounded-xl w-full max-w-md max-h-[80vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-[#3C3C3E]">
+          <h2 className="text-white text-lg font-semibold">Select Exercise</h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="text-[#AEAEB2] hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="p-4 space-y-3 border-b border-[#3C3C3E]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#AEAEB2]" />
+            <Input
+              type="text"
+              placeholder="Search exercises..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-[#2C2C2E] border-[#3C3C3E] text-white"
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Select
+              value={selectedBodyPart}
+              onValueChange={(value) =>
+                setSelectedBodyPart(value as ExerciseBodyPart)
+              }
+            >
+              <SelectTrigger className="flex-1 bg-[#2C2C2E] border-[#3C3C3E] text-white">
+                <SelectValue placeholder="Any Body Part" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#2C2C2E] border-[#3C3C3E]">
+                <SelectItem value="all_body_parts">Any Body Part</SelectItem>
+                <SelectItem value="chest">Chest</SelectItem>
+                <SelectItem value="back">Back</SelectItem>
+                <SelectItem value="shoulders">Shoulders</SelectItem>
+                <SelectItem value="arms">Arms</SelectItem>
+                <SelectItem value="legs">Legs</SelectItem>
+                <SelectItem value="core">Core</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={selectedEquipment}
+              onValueChange={(value) =>
+                setSelectedEquipment(value as ExerciseEquipment)
+              }
+            >
+              <SelectTrigger className="flex-1 bg-[#2C2C2E] border-[#3C3C3E] text-white">
+                <SelectValue placeholder="Any Equipment" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#2C2C2E] border-[#3C3C3E]">
+                <SelectItem value="all_equipment">Any Equipment</SelectItem>
+                <SelectItem value="barbell">Barbell</SelectItem>
+                <SelectItem value="dumbbell">Dumbbell</SelectItem>
+                <SelectItem value="bodyweight">Bodyweight</SelectItem>
+                <SelectItem value="machine">Machine</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Exercise List */}
+        <div className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center p-8">
+              <div className="text-[#AEAEB2]">Loading exercises...</div>
+            </div>
+          ) : (
+            <div className="p-2">
+              {exercises.length === 0 ? (
+                <div className="text-center py-8 text-[#AEAEB2]">
+                  No exercises found
+                </div>
+              ) : (
+                exercises.map((exercise) => (
+                  <div
+                    key={exercise.id}
+                    onClick={() => {
+                      onSelectExercise(exercise);
+                      onClose();
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-[#2C2C2E] cursor-pointer transition-colors"
+                  >
+                    {/* Exercise Icon Placeholder */}
+                    <div className="w-12 h-12 bg-[#3C3C3E] rounded-lg flex items-center justify-center">
+                      <TrendingUp className="h-6 w-6 text-[#AEAEB2]" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-medium truncate">
+                        {exercise.name}
+                      </div>
+                      <div className="text-[#AEAEB2] text-sm capitalize">
+                        {exercise.body_part}
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center">
+                        <span className="text-blue-400 text-xs">?</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Workout Dialog Component
+function WorkoutDialog({
+  isOpen,
+  onClose,
+  step,
+  onUpdateConfig,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  step: FormStepDefinition;
+  onUpdateConfig: (stepId: string, key: string, value: any) => void;
+}) {
+  const [showExerciseSelection, setShowExerciseSelection] = useState(false);
+  const { data: exercisesData } = useExercises();
+  const exercises = exercisesData?.exercises || [];
+
+  const workoutExercises = step.config.workout_exercises || [];
+
+  const addExercise = (exercise: any) => {
+    const newExercise = {
+      exercise_id: exercise.id,
+      exercise_measurement_type:
+        exercise.measurement_type as ExerciseMeasurementType,
+      order_index: workoutExercises.length,
+      workout_sets: [
+        {
+          set_number: 1,
+          target_weight_kg: undefined,
+          target_reps: undefined,
+          target_seconds: undefined,
+          target_distance_m: undefined,
+        },
+      ],
+    };
+    onUpdateConfig(step.id, "workout_exercises", [
+      ...workoutExercises,
+      newExercise,
+    ]);
+  };
+
+  const removeExercise = (exerciseIndex: number) => {
+    const updated = workoutExercises.filter((_, i) => i !== exerciseIndex);
+    onUpdateConfig(step.id, "workout_exercises", updated);
+  };
+
+  const addSet = (exerciseIndex: number) => {
+    const updated = [...workoutExercises];
+    const currentSets = updated[exerciseIndex].workout_sets;
+    const newSet = {
+      set_number: currentSets.length + 1,
+      target_weight_kg: undefined,
+      target_reps: undefined,
+      target_seconds: undefined,
+      target_distance_m: undefined,
+    };
+    updated[exerciseIndex].workout_sets = [...currentSets, newSet];
+    onUpdateConfig(step.id, "workout_exercises", updated);
+  };
+
+  const updateSet = (
+    exerciseIndex: number,
+    setIndex: number,
+    field: string,
+    value: any
+  ) => {
+    const updated = [...workoutExercises];
+    updated[exerciseIndex].workout_sets[setIndex] = {
+      ...updated[exerciseIndex].workout_sets[setIndex],
+      [field]: value,
+    };
+    onUpdateConfig(step.id, "workout_exercises", updated);
+  };
+
+  const removeSet = (exerciseIndex: number, setIndex: number) => {
+    const updated = [...workoutExercises];
+    updated[exerciseIndex].workout_sets = updated[
+      exerciseIndex
+    ].workout_sets.filter((_, i) => i !== setIndex);
+    // Renumber sets
+    updated[exerciseIndex].workout_sets.forEach((set, i) => {
+      set.set_number = i + 1;
+    });
+    onUpdateConfig(step.id, "workout_exercises", updated);
+  };
+
+  const getFieldsForMeasurementType = (
+    measurementType: ExerciseMeasurementType
+  ) => {
+    switch (measurementType) {
+      case "weight_reps":
+        return ["target_weight_kg", "target_reps"];
+      case "reps":
+        return ["target_reps"];
+      case "time":
+        return ["target_seconds"];
+      case "distance_time":
+        return ["target_distance_m", "target_seconds"];
+      default:
+        return [];
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-[#1C1C1E] rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-[#3C3C3E]">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="text-[#AEAEB2] hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+              <h2 className="text-white text-lg font-semibold">
+                Edit Template
+              </h2>
+            </div>
+            <Button
+              onClick={onClose}
+              className="bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              Save
+            </Button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            {/* Template Title */}
+            <div>
+              <h3 className="text-white text-xl font-semibold">
+                Weightlifting
+              </h3>
+              <p className="text-[#AEAEB2] text-sm">Notes</p>
+            </div>
+
+            {/* Exercises */}
+            {workoutExercises.map((workoutExercise, exerciseIndex) => {
+              const selectedExercise = exercises.find(
+                (ex) => ex.id === workoutExercise.exercise_id
+              );
+              const measurementType = workoutExercise.exercise_measurement_type;
+              const visibleFields =
+                getFieldsForMeasurementType(measurementType);
+              const showWeight = visibleFields.includes("target_weight_kg");
+              const showReps = visibleFields.includes("target_reps");
+
+              return (
+                <div key={exerciseIndex} className="space-y-4">
+                  {/* Exercise Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="text-blue-400 text-lg font-medium">
+                        {selectedExercise?.name || "Unknown Exercise"}
+                        {selectedExercise?.equipment && (
+                          <span className="text-[#AEAEB2] text-sm ml-2">
+                            ({selectedExercise.equipment.join(", ")})
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-[#AEAEB2] hover:text-white"
+                      >
+                        <TrendingUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-[#AEAEB2] hover:text-white"
+                        onClick={() => removeExercise(exerciseIndex)}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Sets Table */}
+                  <div className="bg-[#2C2C2E] rounded-lg overflow-hidden">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-5 gap-4 p-3 bg-[#3C3C3E] text-[#AEAEB2] text-sm font-medium">
+                      <div>Set</div>
+                      <div>Previous</div>
+                      {showWeight && <div>kg</div>}
+                      {showReps && <div>Reps</div>}
+                      <div></div>
+                    </div>
+
+                    {/* Sets */}
+                    {workoutExercise.workout_sets.map((set, setIndex) => (
+                      <div
+                        key={setIndex}
+                        className="grid grid-cols-5 gap-4 p-3 border-t border-[#3C3C3E] items-center"
+                      >
+                        <div className="text-white font-medium">
+                          {set.set_number}
+                        </div>
+                        <div className="text-[#AEAEB2] text-sm">
+                          {showWeight &&
+                            showReps &&
+                            `${set.target_weight_kg || 0} kg × ${set.target_reps || 0}`}
+                          {!showWeight &&
+                            showReps &&
+                            `${set.target_reps || 0} reps`}
+                          {showWeight &&
+                            !showReps &&
+                            `${set.target_weight_kg || 0} kg`}
+                        </div>
+                        {showWeight && (
+                          <div>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={set.target_weight_kg || ""}
+                              onChange={(e) =>
+                                updateSet(
+                                  exerciseIndex,
+                                  setIndex,
+                                  "target_weight_kg",
+                                  parseFloat(e.target.value) || undefined
+                                )
+                              }
+                              className="bg-[#3C3C3E] border-[#3C3C3E] text-white text-sm h-8"
+                              placeholder="0"
+                            />
+                          </div>
+                        )}
+                        {showReps && (
+                          <div>
+                            <Input
+                              type="number"
+                              value={set.target_reps || ""}
+                              onChange={(e) =>
+                                updateSet(
+                                  exerciseIndex,
+                                  setIndex,
+                                  "target_reps",
+                                  parseInt(e.target.value) || undefined
+                                )
+                              }
+                              className="bg-[#3C3C3E] border-[#3C3C3E] text-white text-sm h-8"
+                              placeholder="0"
+                            />
+                          </div>
+                        )}
+                        <div className="flex justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeSet(exerciseIndex, setIndex)}
+                            className="text-[#AEAEB2] hover:text-white h-6 w-6 p-0"
+                          >
+                            ―
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Add Set Button */}
+                    <div className="p-3 border-t border-[#3C3C3E]">
+                      <Button
+                        onClick={() => addSet(exerciseIndex)}
+                        variant="ghost"
+                        className="w-full text-[#AEAEB2] hover:text-white hover:bg-[#3C3C3E]"
+                      >
+                        + Add Set
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Add Exercise Button */}
+            <Button
+              onClick={() => setShowExerciseSelection(true)}
+              variant="outline"
+              className="w-full border-dashed border-[#3C3C3E] text-[#AEAEB2] hover:text-white hover:bg-[#2C2C2E]"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Exercise
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Exercise Selection Dialog */}
+      <ExerciseSelectionDialog
+        isOpen={showExerciseSelection}
+        onClose={() => setShowExerciseSelection(false)}
+        onSelectExercise={addExercise}
+      />
+    </>
+  );
 }
