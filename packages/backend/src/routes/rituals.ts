@@ -1,46 +1,32 @@
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth";
 import {
+  completeRitual,
   createRitual,
-  getUserRituals,
-  getPublicRituals,
-  getRitualById,
-  updateRitual,
   deleteRitual,
   forkRitual,
+  getDailySchedule,
+  getPublicRituals,
+  getRitualById,
+  getUserRituals,
   publishRitual,
   unpublishRitual,
-  getRitualStats,
-  completeRitual,
-  updateRitualCompletion,
-  createQuickStepResponse,
-  updateQuickStepResponse,
-  batchCompleteRituals,
 } from "../controllers/rituals";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
 
-// Public routes
-router.get("/public", getPublicRituals);
-router.get("/:id", getRitualById);
-
 // Protected routes
 router.post("/", requireAuth, createRitual);
-router.get("/", requireAuth, getUserRituals);
-router.put("/:id", requireAuth, updateRitual);
 router.delete("/:id", requireAuth, deleteRitual);
 router.post("/:id/fork", requireAuth, forkRitual);
 router.post("/:id/publish", requireAuth, publishRitual);
 router.post("/:id/unpublish", requireAuth, unpublishRitual);
-router.get("/:id/stats", requireAuth, getRitualStats);
 router.post("/:id/complete", requireAuth, completeRitual);
-router.put("/:id/complete", requireAuth, updateRitualCompletion);
+router.get("/user", requireAuth, getUserRituals);
+router.get("/daily-schedule", requireAuth, getDailySchedule);
 
-// Quick step operations
-router.post("/:id/quick-step", requireAuth, createQuickStepResponse);
-router.put("/:id/quick-update", requireAuth, updateQuickStepResponse);
-
-// Batch operations
-router.post("/batch-complete", requireAuth, batchCompleteRituals);
+// Public routes
+router.get("/public", getPublicRituals);
+router.get("/:id", getRitualById);
 
 export default router;

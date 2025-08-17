@@ -12,7 +12,6 @@ import {
   User,
   UserProfileResponse,
   UserProgress,
-  UserRole,
   UserWithoutPassword,
 } from "@rituals/shared";
 import bcrypt from "bcrypt";
@@ -66,9 +65,7 @@ export const register = asyncHandler(async function registerHandler(
         password_hash: passwordHash,
         first_name: data.first_name,
         last_name: data.last_name,
-        role: "user" as UserRole,
         current_streak: 0,
-        timezone: data.timezone || "+00:00",
       })
       .returningAll()
       .execute();
@@ -79,7 +76,7 @@ export const register = asyncHandler(async function registerHandler(
     }
 
     // Generate JWT token
-    const token = generateToken(user.id, user.email, user.role);
+    const token = generateToken(user.id, user.email);
     const responseData = sanitizeUser(user);
 
     // Set auth token as httpOnly cookie
@@ -127,7 +124,7 @@ export const login = asyncHandler(async function loginHandler(
   }
 
   // Generate JWT token
-  const token = generateToken(user.id, user.email, user.role);
+  const token = generateToken(user.id, user.email);
 
   // Set auth token as httpOnly cookie
   const isProd = process.env.NODE_ENV === "production";
@@ -279,9 +276,7 @@ export const updateProfile = asyncHandler(async function updateProfileHandler(
     email: updatedUser.email,
     first_name: updatedUser.first_name,
     last_name: updatedUser.last_name,
-    role: updatedUser.role,
     current_streak: updatedUser.current_streak,
-    timezone: updatedUser.timezone,
     created_at: updatedUser.created_at,
     updated_at: updatedUser.updated_at,
   };
@@ -296,12 +291,11 @@ export const updateProfile = asyncHandler(async function updateProfileHandler(
 // UTILITY METHODS
 // ===========================================
 
-function generateToken(userId: string, email: string, role: UserRole): string {
+function generateToken(userId: string, email: string): string {
   // JWT payload matching what the middleware expects
   return jwt.sign(
     {
       userId,
-      role,
       sub: userId,
       email: email,
     },
@@ -320,8 +314,6 @@ export function sanitizeUser(user: User): UserWithoutPassword {
     first_name: user.first_name,
     id: user.id,
     last_name: user.last_name,
-    role: user.role,
-    timezone: user.timezone,
     updated_at: user.updated_at,
   };
 }

@@ -3,14 +3,12 @@ import {
   getErrorCode,
   InternalError,
   UnauthorizedError,
-  UserRole,
 } from "@rituals/shared";
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
 interface JwtPayload {
   userId: string;
-  role: UserRole;
   sub: string;
   email: string;
   iat: number;
@@ -47,7 +45,6 @@ export function requireAuth(
     const payload = jwt.verify(token, jwtSecret) as JwtPayload;
     // Add user ID to request
     req.userId = payload.sub;
-    req.role = payload.role;
 
     next();
   } catch (error) {
@@ -112,30 +109,3 @@ export function requireAuth(
 //     next();
 //   }
 // }
-
-/**
- * Middleware to require admin role (must be used after requireAuth)
- */
-export function requireAdmin(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
-  // This middleware assumes the user object is attached by the auth service
-  const { userId, role } = req;
-
-  if (!userId) {
-    throw new UnauthorizedError("Authentication required");
-  }
-
-  if (role !== "admin") {
-    res.status(403).json({
-      success: false,
-      error: "Forbidden",
-      message: "Admin access required",
-    });
-    return;
-  }
-
-  next();
-}

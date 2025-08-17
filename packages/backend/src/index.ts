@@ -8,14 +8,14 @@ import "source-map-support/register";
 
 // Import routes
 import authRoutes from "./routes/auth";
-import dailyRitualRoutes from "./routes/daily-rituals";
+import exerciseRoutes from "./routes/exercises";
 import ritualRoutes from "./routes/rituals";
 
 // Import middleware
 import { notFoundHandler } from "./middleware/error-handler";
 
 // Import database
-import { requestContext, requestIdMiddleware, UserRole } from "@rituals/shared";
+import { requestContext, requestIdMiddleware } from "@rituals/shared";
 import { closeConnection, testConnection } from "./database/connection";
 
 const originalLog = console.log;
@@ -25,12 +25,10 @@ function customConsoleMethod(
   isError: boolean,
   ...args: unknown[]
 ) {
-  // Get request ID from AsyncLocalStorage
   const requestId = requestContext.requestId;
 
-  // Get file location from stack trace
-  const stack = new Error().stack;
-  const callerLine = stack?.split("\n")[2];
+  const stack = new Error().stack?.split("\n");
+  const callerLine = stack?.[3]; // <-- skip further down
   const locationMatch = callerLine?.match(/\((.*):(\d+):(\d+)\)/);
 
   let location = "";
@@ -41,16 +39,14 @@ function customConsoleMethod(
     location = callerLine?.trim() || "";
   }
 
-  // Build prefix with colors
   const prefixParts = [];
   if (requestId) {
-    prefixParts.push(`\x1b[36m[req:${requestId}]\x1b[0m`); // Cyan
+    prefixParts.push(`\x1b[36m[req:${requestId}]\x1b[0m`);
   }
-  prefixParts.push(`\x1b[32m[${location}]\x1b[0m`); // Green
+  prefixParts.push(`\x1b[32m[${location}]\x1b[0m`);
 
   const prefix = prefixParts.join(" ");
 
-  // Wrap the whole output in red if it's an error
   if (isError) {
     originalMethod(`\x1b[31m${prefix}\n`, ...args, "\x1b[0m");
   } else {
@@ -58,11 +54,14 @@ function customConsoleMethod(
   }
 }
 
-// Patch console methods
+// Clear terminal when process restarts in dev mode
+if (process.env.NODE_ENV !== "production") {
+  process.stdout.write("\x1Bc"); // same as `clear` command
+}
+
 console.log = function (...args) {
   customConsoleMethod(originalLog, false, ...args);
 };
-
 // Load environment variables
 dotenv.config();
 
@@ -72,8 +71,7 @@ const PORT = process.env.API_PORT || 3001;
 // Extend Express Request type to include user
 declare module "express-serve-static-core" {
   interface Request {
-    userId?: string;
-    role?: UserRole;
+    userId: string;
     email?: string;
   }
 }
@@ -102,8 +100,8 @@ app.get("/health", (req, res) => {
 
 // API routes
 app.use("/api/auth", authRoutes);
+app.use("/api/exercises", exerciseRoutes);
 app.use("/api/rituals", ritualRoutes);
-app.use("/api/daily-rituals", dailyRitualRoutes);
 
 // 404 handler for undefined routes
 app.use(notFoundHandler);

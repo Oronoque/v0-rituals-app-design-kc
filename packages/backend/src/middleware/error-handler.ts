@@ -4,7 +4,6 @@ import {
   getErrorCode,
   InternalError,
   NotFoundError,
-  UnauthorizedError,
   ValidationError,
 } from "@rituals/shared";
 import { Request, Response } from "express";
@@ -23,7 +22,7 @@ export type SafeResponse = Omit<Response, "json" | "send" | "end" | "jsonp">;
 export type Handler<T> = (
   req: Request,
   res: SafeResponse
-) => Promise<Omit<ApiSuccess<T>, "status">>;
+) => Promise<ApiSuccess<T>>;
 
 export function asyncHandler<T>(fn: Handler<T>) {
   return async function withResultHandler(req: Request, res: Response) {
@@ -42,10 +41,6 @@ export function asyncHandler<T>(fn: Handler<T>) {
           apiError = err;
         } else if (err instanceof ZodError) {
           apiError = new ValidationError(err);
-        } else if (err.name === "JsonWebTokenError") {
-          apiError = new UnauthorizedError("Invalid token", err);
-        } else if (err.name === "TokenExpiredError") {
-          apiError = new UnauthorizedError("Token expired", err);
         } else if (
           err.message.includes("duplicate key value violates unique constraint")
         ) {
@@ -57,7 +52,10 @@ export function asyncHandler<T>(fn: Handler<T>) {
             err
           );
         } else {
-          apiError = new InternalError("Unexpected error: " + err.message, err);
+          apiError = new InternalError(
+            "Unexpected error occured in " + fn.name + ": " + err.message,
+            err
+          );
         }
       } else {
         apiError = new InternalError("Unknown error", err);

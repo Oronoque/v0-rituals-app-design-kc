@@ -35,6 +35,12 @@ class DatabaseManager {
         dialect: new PostgresDialect({
           pool: DatabaseManager.poolInstance,
         }),
+        log(event) {
+          if (event.level === "query") {
+            // console.log("SQL:", event.query.sql);
+            // console.log("Params:", event.query.parameters.join(", "));
+          }
+        },
       });
     }
     return DatabaseManager.instance;
