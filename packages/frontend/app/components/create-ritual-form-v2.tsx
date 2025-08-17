@@ -23,6 +23,7 @@ import {
   createRitualSchema,
   Exercise,
   fromSI,
+  prettifyError,
   toSI,
   type CreateRitualSchemaType,
   type ExerciseBodyPart,
@@ -46,7 +47,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import z from "zod";
 import { DurationPicker } from "./ui/duration-picker";
 
 interface CreateRitualFormProps {
@@ -160,7 +160,7 @@ function validateRitualData(
   console.log("Ritual data:", ritualData);
   const validatedRitualData = createRitualSchema.safeParse(ritualData);
   if (!validatedRitualData.success) {
-    const errorMessage = z.prettifyError(validatedRitualData.error);
+    const errorMessage = prettifyError(validatedRitualData.error);
     console.log(errorMessage);
 
     // Split at the cross (×) symbol or handle specific validation errors

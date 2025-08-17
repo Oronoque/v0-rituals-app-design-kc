@@ -65,7 +65,7 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "latest",
     "vaul": "^0.9.6",
-    "zod": "^4.0.5"
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^22",
