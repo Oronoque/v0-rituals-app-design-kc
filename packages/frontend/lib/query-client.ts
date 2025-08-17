@@ -42,4 +42,16 @@ export const queryKeys = {
     byDate: (date: string) => ["daily", "byDate", date] as const,
     schedule: (date: string) => ["daily", "schedule", date] as const,
   },
+  // Exercises
+  exercises: {
+    all: ["exercises"] as const,
+    list: (params?: object) => ["exercises", "list", params] as const,
+    byId: (id: string) => ["exercises", "byId", id] as const,
+  },
+  // Physical Quantities
+  physicalQuantities: {
+    all: ["physicalQuantities"] as const,
+    list: (params?: object) => ["physicalQuantities", "list", params] as const,
+    byId: (id: string) => ["physicalQuantities", "byId", id] as const,
+  },
 } as const;
