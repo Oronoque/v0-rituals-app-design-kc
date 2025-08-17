@@ -1,4 +1,4 @@
-import { RitualWithSteps } from "@rituals/shared";
+import { FullRitual } from "@rituals/shared";
 
 export type FlowState =
   | "auth"
@@ -19,7 +19,7 @@ export type FlowState =
 export interface AppState {
   flowState: FlowState;
   isAuthenticated: boolean;
-  rituals: RitualWithSteps[];
+  rituals: FullRitual[];
   currentRitualIndex: number;
   currentStepIndex: number;
   showMetrics: boolean;

@@ -6,7 +6,7 @@ import type { FlowState } from "@/app/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { RitualWithSteps } from "@rituals/shared";
+import { FullRitual } from "@rituals/shared";
 import {
   AlertCircle,
   ArrowLeft,
@@ -29,7 +29,7 @@ interface ChatMessage {
 
 interface ReflectionScreenProps {
   onNavigate: (flow: FlowState) => void;
-  completedRituals: RitualWithSteps[];
+  completedRituals: FullRitual[];
   dayRating: number;
   dayReflection: string;
   onShutdownComplete: () => void;
@@ -96,7 +96,7 @@ export function ReflectionScreen({
   }, [completedRituals, dayRating, dayReflection, completionRate]);
 
   const generateJungianAnalysis = (
-    rituals: RitualWithSteps[],
+    rituals: FullRitual[],
     rating: number,
     reflection: string,
     completion: number
