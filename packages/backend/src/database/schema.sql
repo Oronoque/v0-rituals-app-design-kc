@@ -8,6 +8,8 @@ CREATE TYPE step_type AS ENUM ('boolean', 'counter', 'qna', 'timer', 'scale', 'w
 
 -- Exercises related enums
 CREATE TYPE exercise_body_part AS ENUM (
+  'chest',
+  'shoulders',
   'core',
   'arms',
   'back',
@@ -96,6 +98,10 @@ CREATE TABLE ritual_completions (
 CREATE TABLE physical_quantities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
+  display_unit VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  conversion_factor INTEGER NOT NULL,
+  conversion_exponent INTEGER NOT NULL,
   m_exp INTEGER NOT NULL DEFAULT 0,
   kg_exp INTEGER NOT NULL DEFAULT 0,
   s_exp INTEGER NOT NULL DEFAULT 0,
@@ -111,7 +117,7 @@ CREATE TABLE exercises (
   name VARCHAR(255) NOT NULL,
   body_part exercise_body_part NOT NULL,
   measurement_type exercise_measurement_type NOT NULL,
-  equipment exercise_equipment[] DEFAULT ARRAY['other'::exercise_equipment],
+  equipment exercise_equipment[] DEFAULT ARRAY[]::exercise_equipment[],
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

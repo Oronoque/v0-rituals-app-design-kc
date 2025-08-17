@@ -249,7 +249,7 @@ export const getProfile = asyncHandler(async function getProfileHandler(
 
 export const updateProfile = asyncHandler(async function updateProfileHandler(
   req: Request
-) {
+): Promise<ApiSuccess<UserProfileResponse>> {
   const userId = req.userId;
 
   if (!userId) {
@@ -284,6 +284,7 @@ export const updateProfile = asyncHandler(async function updateProfileHandler(
   return {
     data: sanitizedUser,
     message: "Profile updated successfully",
+    status: "success",
   };
 });
 

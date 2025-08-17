@@ -115,6 +115,7 @@ export const getDailyScheduleSchema = z.object({
   include_completed: z
     .string()
     .optional()
+    .default("true")
     .transform((val) => val === "true")
     .pipe(z.boolean()),
   timezone: z.string().optional(),

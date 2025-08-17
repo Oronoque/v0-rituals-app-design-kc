@@ -99,11 +99,6 @@ export default function RitualsApp() {
     setChangelogRitualId(null);
   };
 
-  const handleShowChangelog = (ritualId: string) => {
-    setChangelogRitualId(ritualId);
-    setShowChangelog(true);
-  };
-
   const showBottomNav = isAuthenticated && !showChangelog;
 
   // Show loading screen
@@ -135,17 +130,12 @@ export default function RitualsApp() {
 
   // Main app content
   return (
-    <>
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Status Bar Simulation */}
       <div className="h-1 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0" />
 
-      {/* Main Content Area */}
-      <div
-        className={cn(
-          "flex-1 flex flex-col overflow-hidden",
-          showBottomNav ? "pb-20" : ""
-        )}
-      >
+      {/* Main Content Area - Scrollable */}
+      <div className="flex-1 flex flex-col min-h-0">
         {(() => {
           switch (currentFlow) {
             case "auth":
@@ -230,9 +220,9 @@ export default function RitualsApp() {
         })()}
       </div>
 
-      {/* Bottom Navigation */}
+      {/* Bottom Navigation - Fixed at bottom */}
       {showBottomNav && (
-        <div className="absolute bottom-0 left-0 right-0 border-t border-[#3C3C3E]/30 bg-[#1C1C1E]/95 backdrop-blur-sm">
+        <div className="flex-shrink-0 border-t border-[#3C3C3E]/30 bg-[#1C1C1E]/95 backdrop-blur-sm ios-safe-area">
           <div className="flex items-center justify-around py-3 px-6">
             {navItems.map((item) => {
               const isActive = currentFlow === item.id;
@@ -241,7 +231,7 @@ export default function RitualsApp() {
                 <Button
                   key={item.id}
                   variant="ghost"
-                  className="flex flex-col items-center gap-1 p-2 min-w-0"
+                  className="flex flex-col items-center gap-1 p-2 min-w-0 ios-touch-target"
                   onClick={() => handleNavigate(item.id)}
                 >
                   <div
@@ -268,6 +258,6 @@ export default function RitualsApp() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

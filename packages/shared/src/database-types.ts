@@ -30,6 +30,8 @@ export type StepType =
   | "workout";
 
 export type ExerciseBodyPart =
+  | "chest"
+  | "shoulders"
   | "core"
   | "arms"
   | "back"
@@ -130,6 +132,8 @@ export interface RitualCompletionsTable {
 export interface PhysicalQuantitiesTable {
   id: Generated<string>;
   name: string; // e.g. "distance", "weight", "time", "temperature", "volume", "current", "luminous_intensity"
+  display_unit: string; // e.g. "m", "kg", "s", "A", "K", "mol", "cd"
+  description: string; // e.g. Simple counting (pushups, situps, etc.), Water intake tracking, Walking, running, cycling, Weight tracking, lifting
   m_exp: number; // metre exponent
   kg_exp: number; // kilogram exponent
   s_exp: number; // second exponent
@@ -137,6 +141,8 @@ export interface PhysicalQuantitiesTable {
   K_exp: number; // kelvin exponent
   mol_exp: number; // mole exponent
   cd_exp: number; // candela exponent
+  conversion_factor: number; // to convert to base unit
+  conversion_exponent: number; // to convert to base unit
 }
 
 export interface ExercisesTable {

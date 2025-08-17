@@ -1,11 +1,5 @@
 import { Router } from "express";
-import {
-  getProfile,
-  login,
-  logout,
-  register,
-  updateProfile,
-} from "../controllers/auth";
+import { getProfile, login, logout, register } from "../controllers/auth";
 import { requireAuth } from "../middleware/auth";
 
 const router = Router();
@@ -25,7 +19,7 @@ router.post("/logout", logout);
 
 // User profile management
 router.get("/profile", requireAuth, getProfile);
-router.put("/profile", requireAuth, updateProfile);
+// router.put("/profile", requireAuth, updateProfile);
 
 // ===========================================
 // ADMIN ROUTES

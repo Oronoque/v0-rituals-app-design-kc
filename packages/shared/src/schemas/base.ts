@@ -70,7 +70,11 @@ export const workoutSetSchema = z.object({
     .number()
     .positive("Target weight must be positive")
     .optional(),
-  target_reps: z.number().positive("Target reps must be positive").optional(),
+  target_reps: z
+    .number()
+    .int()
+    .min(1, "Target reps must be at least 1")
+    .optional(),
   target_seconds: z
     .number()
     .positive("Target seconds must be positive")
@@ -87,7 +91,9 @@ export const workoutExerciseSchema = z
     exercise_id: z.string(),
     exercise_measurement_type: exerciseMeasurementTypeSchema,
     order_index: z.number(),
-    workout_sets: z.array(workoutSetSchema),
+    workout_sets: z
+      .array(workoutSetSchema)
+      .min(1, "Workout exercise requires at least one workout set"),
   })
   .refine(
     (data) => {
@@ -140,7 +146,10 @@ export const stepDefinitionSchema = z
     target_seconds: z.number().optional(),
     min_value: z.number().optional(),
     max_value: z.number().optional(),
-    workout_exercises: z.array(workoutExerciseSchema).optional(),
+    workout_exercises: z
+      .array(workoutExerciseSchema)
+      .min(1, "Workout type requires at least one workout exercise")
+      .optional(),
   })
   .refine(
     (data) => {

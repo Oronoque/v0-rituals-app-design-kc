@@ -1,5 +1,16 @@
-import { AsyncLocalStorage } from "async_hooks";
+// Browser-safe imports and implementations
 import { NextFunction, Request, Response } from "express";
+let AsyncLocalStorage: any;
+
+// Only import Node.js modules on server side
+if (typeof window === "undefined" && typeof process !== "undefined") {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    AsyncLocalStorage = require("async_hooks").AsyncLocalStorage;
+  } catch {
+    // Fallback if modules not available
+  }
+}
 
 interface RequestContextData {
   request_id: string;
@@ -7,9 +18,15 @@ interface RequestContextData {
 
 class RequestContext {
   private static _instance: RequestContext;
-  private storage = new AsyncLocalStorage<RequestContextData>();
+  private storage: any;
 
-  private constructor() {}
+  private constructor() {
+    // Only create AsyncLocalStorage on server side
+    if (AsyncLocalStorage) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      this.storage = new AsyncLocalStorage();
+    }
+  }
 
   public static get instance(): RequestContext {
     if (!this._instance) {
@@ -19,11 +36,19 @@ class RequestContext {
   }
 
   run(request_id: string, callback: () => void) {
-    this.storage.run({ request_id }, callback);
+    if (this.storage) {
+      const contextData: RequestContextData = { request_id };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      this.storage.run(contextData, callback);
+    } else {
+      // Browser fallback - just execute callback
+      callback();
+    }
   }
 
   get requestId(): string | undefined {
-    return this.storage.getStore()?.request_id;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    return this.storage?.getStore()?.request_id;
   }
 }
 
@@ -34,6 +59,12 @@ export function requestIdMiddleware(
   res: Response,
   next: NextFunction
 ) {
+  // Only work on server side
+  if (typeof window !== "undefined") {
+    // Browser fallback - do nothing
+    return;
+  }
+
   const reqId = req.headers["x-request-id"]?.toString() || crypto.randomUUID();
 
   requestContext.run(reqId, function requestIdMiddleware() {

@@ -9,8 +9,16 @@ import {
 } from "@/hooks/use-api";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import type { RitualWithSteps } from "@rituals/shared";
-import { Clock, Filter, Plus, Search, Star, Users } from "lucide-react";
+import { FullRitual, RitualCategory } from "@rituals/shared";
+import {
+  Clock,
+  Filter,
+  Lock,
+  LockOpen,
+  Plus,
+  Search,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 
 interface LibraryScreenProps {
@@ -18,28 +26,30 @@ interface LibraryScreenProps {
   onCreateRitual?: () => void;
 }
 
-const categories = [
+const categories: { id: RitualCategory | "all"; name: string }[] = [
   { id: "all", name: "All Categories" },
   { id: "wellness", name: "Wellness" },
   { id: "fitness", name: "Fitness" },
+  { id: "learning", name: "Learning" },
   { id: "productivity", name: "Productivity" },
-  { id: "mindfulness", name: "Mindfulness" },
-  { id: "health", name: "Health" },
+  { id: "social", name: "Social" },
+  { id: "spiritual", name: "Spiritual" },
+  { id: "other", name: "Other" },
 ];
 
 interface RitualCardProps {
-  ritual: RitualWithSteps;
+  ritual: FullRitual;
+  isMyRitual?: boolean;
   onFork?: (id: string) => void;
-  onAdd?: (id: string) => void;
-  isPublic?: boolean;
+  isPublicRituals?: boolean;
   isForking?: boolean;
 }
 
 function RitualCard({
   ritual,
   onFork,
-  onAdd,
-  isPublic = false,
+  isMyRitual,
+  isPublicRituals,
   isForking = false,
 }: RitualCardProps) {
   return (
@@ -51,33 +61,30 @@ function RitualCard({
             <h3 className="font-semibold text-white text-base truncate">
               {ritual.name}
             </h3>
-            {isPublic && (
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <Star className="w-3 h-3 text-yellow-500 fill-current" />
-                <span className="text-yellow-500 text-xs font-medium">
-                  4.{Math.floor(Math.random() * 10)}
-                </span>
-              </div>
-            )}
           </div>
-          {isPublic && (
-            <p className="text-[#8E8E93] text-xs">
-              by user_{ritual.user_id.slice(-4)}
-            </p>
-          )}
+          <p className="text-[#8E8E93] text-xs">
+            by {ritual.user_id.slice(0, 8)}
+          </p>
         </div>
-        <Button
-          size="sm"
-          className="rounded-full w-8 h-8 p-0 bg-blue-500 hover:bg-blue-600 flex-shrink-0 ml-2 shadow-lg shadow-blue-500/25"
-          onClick={() => (isPublic ? onFork?.(ritual.id) : onAdd?.(ritual.id))}
-          disabled={isForking}
-        >
-          {isForking ? (
-            <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <Plus className="w-4 h-4" />
-          )}
-        </Button>
+        {!isMyRitual && (
+          <Button
+            size="sm"
+            className="rounded-full w-8 h-8 p-0 bg-blue-500 hover:bg-blue-600 flex-shrink-0 ml-2 shadow-lg shadow-blue-500/25"
+            onClick={() => onFork?.(ritual.id)}
+            disabled={isForking}
+          >
+            {isForking ? (
+              <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+          </Button>
+        )}
+        {isPublicRituals ? (
+          <LockOpen className="w-4 h-4 text-[#8E8E93]" />
+        ) : (
+          <Lock className="w-4 h-4 text-[#8E8E93]" />
+        )}
       </div>
 
       {/* Description */}
@@ -89,12 +96,11 @@ function RitualCard({
 
       {/* Stats */}
       <div className="flex items-center gap-3 text-[#8E8E93] text-xs">
-        {isPublic && (
-          <div className="flex items-center gap-1">
-            <Users className="w-3 h-3" />
-            <span>{ritual.fork_count}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-1">
+          <Users className="w-3 h-3" />
+          <span>{ritual.fork_count}</span>
+        </div>
+
         <div className="flex items-center gap-1">
           <Clock className="w-3 h-3" />
           <span>{ritual.step_definitions?.length || 0} steps</span>
@@ -113,58 +119,38 @@ function RitualCard({
             {ritual.location}
           </span>
         )}
-        {isPublic && (
-          <>
-            <span className="bg-[#3C3C3E] text-[#8E8E93] px-2 py-0.5 rounded-full text-xs">
-              Quick
-            </span>
-            <span className="bg-[#3C3C3E] text-[#8E8E93] px-2 py-0.5 rounded-full text-xs">
-              Beginner
-            </span>
-          </>
-        )}
       </div>
-
-      {/* Time indicator for private rituals */}
-      {!isPublic && (
-        <div className="flex items-center gap-2 pt-2 border-t border-[#3C3C3E]/50">
-          <Clock className="w-3 h-3 text-[#8E8E93]" />
-          <span className="text-[#8E8E93] text-xs">06:00</span>
-          <span className="text-[#8E8E93] text-xs">•</span>
-          <span className="text-[#8E8E93] text-xs">
-            {ritual.category || "General"}
-          </span>
-        </div>
-      )}
     </div>
   );
 }
 
-export function LibraryScreen({
-  onNavigate,
-  onCreateRitual,
-}: LibraryScreenProps) {
-  const [activeTab, setActiveTab] = useState<"public" | "private">("public");
+export function LibraryScreen({ onCreateRitual }: LibraryScreenProps) {
+  const [activeTab, setActiveTab] = useState<"publicRituals" | "userRituals">(
+    "publicRituals"
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showCreateForm, setShowCreateForm] = useState(false);
 
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const forkRitualMutation = useForkRitual();
 
   // Fetch data based on active tab
-  const { data: publicData, isLoading: publicLoading } = usePublicRituals({
-    search: searchQuery || undefined,
-    category: selectedCategory !== "all" ? selectedCategory : undefined,
-    limit: 20,
-    offset: 0,
-  });
+  const { data: publicRitualsData, isLoading: publicRitualsLoading } =
+    usePublicRituals({
+      search: activeTab === "publicRituals" ? searchQuery : undefined,
+      category: selectedCategory !== "all" ? selectedCategory : undefined,
+      limit: 20,
+      offset: 0,
+    });
 
-  const { data: privateData, isLoading: privateLoading } = useUserRituals({
-    category: selectedCategory !== "all" ? selectedCategory : undefined,
-    limit: 20,
-    offset: 0,
-  });
+  const { data: userRitualsData, isLoading: userRitualsLoading } =
+    useUserRituals({
+      search: activeTab === "userRituals" ? searchQuery : undefined,
+      category: selectedCategory !== "all" ? selectedCategory : undefined,
+      limit: 20,
+      offset: 0,
+    });
 
   const handleFork = (ritualId: string) => {
     if (!isAuthenticated) return;
@@ -176,8 +162,10 @@ export function LibraryScreen({
     onCreateRitual?.();
   };
 
-  const currentData = activeTab === "public" ? publicData : privateData;
-  const isLoading = activeTab === "public" ? publicLoading : privateLoading;
+  const currentData =
+    activeTab === "publicRituals" ? publicRitualsData : userRitualsData;
+  const isLoading =
+    activeTab === "publicRituals" ? publicRitualsLoading : userRitualsLoading;
   const rituals = currentData?.rituals || [];
 
   // Show create ritual form
@@ -208,40 +196,42 @@ export function LibraryScreen({
         </div>
 
         {/* Tabs */}
-        <div className="flex bg-[#2C2C2E] rounded-2xl p-1.5 mb-6 shadow-inner">
+        <div className="flex bg-[#2C2C2E] rounded-2xl p-1 mb-6 shadow-inner gap-1">
           <Button
             variant="ghost"
-            onClick={() => setActiveTab("public")}
+            onClick={() => setActiveTab("publicRituals")}
             className={cn(
-              "flex-1 h-11 rounded-xl transition-all duration-200 font-medium text-sm",
-              activeTab === "public"
+              "flex-1 h-10 rounded-xl transition-all duration-200 font-medium text-sm flex items-center justify-center px-2",
+              activeTab === "publicRituals"
                 ? "bg-blue-500 text-white shadow-lg shadow-blue-500/25"
                 : "text-[#8E8E93] hover:text-white hover:bg-[#3C3C3E]"
             )}
           >
-            <Users className="w-4 h-4 mr-2" />
-            Public
+            <Users className="w-4 h-4 mr-1.5 flex-shrink-0" />
+            <span className="truncate">Public</span>
           </Button>
           <Button
             variant="ghost"
-            onClick={() => setActiveTab("private")}
+            onClick={() => setActiveTab("userRituals")}
             className={cn(
-              "flex-1 h-11 rounded-xl transition-all duration-200 font-medium text-sm",
-              activeTab === "private"
+              "flex-1 h-10 rounded-xl transition-all duration-200 font-medium text-sm flex items-center justify-center px-2",
+              activeTab === "userRituals"
                 ? "bg-[#3C3C3E] text-white"
                 : "text-[#8E8E93] hover:text-white hover:bg-[#3C3C3E]"
             )}
           >
-            <span className="w-4 h-4 mr-2">🔒</span>
-            Private
+            <span className="w-4 h-4 mr-1.5 flex-shrink-0 flex items-center justify-center text-xs">
+              🔒
+            </span>
+            <span className="truncate">My Rituals</span>
           </Button>
           <Button
             variant="ghost"
             onClick={handleCreateClick}
-            className="flex-1 h-11 rounded-xl bg-yellow-600 text-white hover:bg-yellow-700 font-medium shadow-lg shadow-yellow-600/25"
+            className="flex-1 h-10 rounded-xl bg-yellow-600 text-white hover:bg-yellow-700 font-medium shadow-lg shadow-yellow-600/25 flex items-center justify-center px-2"
           >
-            <Plus className="w-4 h-4 mr-2" />
-            Create
+            <Plus className="w-4 h-4 mr-1.5 flex-shrink-0" />
+            <span className="truncate">Create</span>
           </Button>
         </div>
 
@@ -298,17 +288,15 @@ export function LibraryScreen({
                 <RitualCard
                   key={ritual.id}
                   ritual={ritual}
+                  isMyRitual={ritual.user_id === user?.id}
                   onFork={handleFork}
-                  onAdd={() => {
-                    /* Handle add to schedule */
-                  }}
-                  isPublic={activeTab === "public"}
+                  isPublicRituals={ritual.is_public}
                   isForking={forkRitualMutation.isPending}
                 />
               ))}
             </div>
-          ) : activeTab === "private" ? (
-            // Empty state for private rituals
+          ) : activeTab === "userRituals" ? (
+            // Empty state for userRituals rituals
             <div className="text-center py-16">
               <div className="w-24 h-24 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-3xl mx-auto mb-6 flex items-center justify-center">
                 <Plus className="w-12 h-12 text-[#8E8E93]" />

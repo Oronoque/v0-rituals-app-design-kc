@@ -102,7 +102,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-[#3C3C3E]/30 flex-shrink-0">
         <div className="flex-1">

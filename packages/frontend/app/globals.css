@@ -35,6 +35,13 @@
 }
 
 @layer base {
+  ::placeholder {
+    color: rgb(142, 142, 147); /* iOS placeholder gray */
+    opacity: 1; /* Prevents browsers from applying extra opacity */
+  }
+}
+
+@layer base {
   * {
     @apply border-border;
     -webkit-tap-highlight-color: transparent;
@@ -70,10 +77,14 @@
 
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
     background-color: rgb(0 0 0); /* Pure black for OLED iPhones */
     color: rgb(255 255 255);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    font-family:
+      -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+      system-ui, sans-serif;
     font-size: 17px; /* iOS default - prevents zoom */
     line-height: 1.4;
     /* Prevent overscroll bounce on iOS */
@@ -378,7 +389,12 @@
 }
 
 .ios-skeleton {
-  background: linear-gradient(90deg, rgb(28 28 30) 25%, rgb(44 44 46) 50%, rgb(28 28 30) 75%);
+  background: linear-gradient(
+    90deg,
+    rgb(28 28 30) 25%,
+    rgb(44 44 46) 50%,
+    rgb(28 28 30) 75%
+  );
   background-size: 200px 100%;
   animation: ios-shimmer 1.5s infinite;
 }

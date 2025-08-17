@@ -16,6 +16,7 @@ import {
   FullStepResponse,
   getDailyScheduleSchema,
   InternalError,
+  NewWorkoutSet,
   NewWorkoutSetResponse,
   PhysicalQuantity,
   RitualCategory,
@@ -168,6 +169,7 @@ export const getPublicRituals = asyncHandler(
     const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
     const category = req.query.category as RitualCategory | undefined;
     const search = req.query.search as string | undefined;
+
     // Validate limit and offset
     if (limit < 1 || limit > 100) {
       throw new BadRequestError("Limit must be between 1 and 100");
@@ -176,7 +178,33 @@ export const getPublicRituals = asyncHandler(
     if (offset < 0) {
       throw new BadRequestError("Offset must be non-negative");
     }
-    let query = db
+
+    // Build base query for rituals without joins for counting
+    let baseQuery = db
+      .selectFrom("rituals")
+      .where("rituals.is_public", "=", true);
+
+    // Apply filters to base query
+    if (category) {
+      baseQuery = baseQuery.where("rituals.category", "=", category);
+    }
+
+    if (search) {
+      baseQuery = baseQuery.where((eb) =>
+        eb.or([
+          eb("rituals.name", "ilike", `%${search}%`),
+          eb("rituals.description", "ilike", `%${search}%`),
+        ])
+      );
+    }
+
+    // Get total count using the base query (without joins)
+    const totalCount = await baseQuery
+      .select((eb) => eb.fn.count<number>("rituals.id").as("count"))
+      .executeTakeFirst();
+
+    // Build the main query with joins for fetching data
+    let dataQuery = db
       .selectFrom("rituals")
       .innerJoin(
         "ritual_frequencies",
@@ -202,13 +230,13 @@ export const getPublicRituals = asyncHandler(
       ])
       .where("rituals.is_public", "=", true);
 
-    // Apply filters
+    // Apply same filters to data query
     if (category) {
-      query = query.where("rituals.category", "=", category);
+      dataQuery = dataQuery.where("rituals.category", "=", category);
     }
 
     if (search) {
-      query = query.where((eb) =>
+      dataQuery = dataQuery.where((eb) =>
         eb.or([
           eb("rituals.name", "ilike", `%${search}%`),
           eb("rituals.description", "ilike", `%${search}%`),
@@ -217,7 +245,7 @@ export const getPublicRituals = asyncHandler(
     }
 
     // Get paginated data
-    const rituals_with_frequency = await query
+    const rituals_with_frequency = await dataQuery
       .limit(limit)
       .offset(offset)
       .orderBy("rituals.created_at", "desc")
@@ -324,7 +352,7 @@ export const getPublicRituals = asyncHandler(
     return {
       data: {
         rituals,
-        total: rituals.length,
+        total: totalCount?.count ?? 0,
       },
       message: "Public rituals fetched successfully",
       status: "success",
@@ -351,7 +379,33 @@ export const getUserRituals = asyncHandler(async function getUserRitualsHandler(
   if (offset < 0) {
     throw new BadRequestError("Offset must be non-negative");
   }
-  let query = db
+
+  // Build base query for rituals without joins for counting
+  let baseQuery = db
+    .selectFrom("rituals")
+    .where("rituals.user_id", "=", req.userId);
+
+  // Apply filters
+  if (category) {
+    baseQuery = baseQuery.where("rituals.category", "=", category);
+  }
+
+  if (search) {
+    baseQuery = baseQuery.where((eb) =>
+      eb.or([
+        eb("rituals.name", "ilike", `%${search}%`),
+        eb("rituals.description", "ilike", `%${search}%`),
+      ])
+    );
+  }
+
+  // Get total count using the base query (without joins)
+  const totalCount = await baseQuery
+    .select((eb) => eb.fn.count<number>("rituals.id").as("count"))
+    .executeTakeFirst();
+
+  // Build the main query with joins for fetching data
+  let dataQuery = db
     .selectFrom("rituals")
     .innerJoin(
       "ritual_frequencies",
@@ -373,13 +427,13 @@ export const getUserRituals = asyncHandler(async function getUserRitualsHandler(
     ])
     .where("rituals.user_id", "=", req.userId);
 
-  // Apply filters
+  // Apply same filters to data query
   if (category) {
-    query = query.where("rituals.category", "=", category);
+    dataQuery = dataQuery.where("rituals.category", "=", category);
   }
 
   if (search) {
-    query = query.where((eb) =>
+    dataQuery = dataQuery.where((eb) =>
       eb.or([
         eb("rituals.name", "ilike", `%${search}%`),
         eb("rituals.description", "ilike", `%${search}%`),
@@ -388,7 +442,7 @@ export const getUserRituals = asyncHandler(async function getUserRitualsHandler(
   }
 
   // Get paginated data
-  const rituals_with_frequency = await query
+  const rituals_with_frequency = await dataQuery
     .limit(limit)
     .offset(offset)
     .orderBy("rituals.created_at", "desc")
@@ -495,9 +549,9 @@ export const getUserRituals = asyncHandler(async function getUserRitualsHandler(
   return {
     data: {
       rituals,
-      total: rituals.length,
+      total: totalCount?.count ?? 0,
     },
-    message: "Public rituals fetched successfully",
+    message: "User rituals fetched successfully", // Fixed message
     status: "success",
   };
 });
@@ -730,6 +784,11 @@ export const forkRitual = asyncHandler(async function forkRitualHandler(
     throw new ForbiddenError("Cannot fork private ritual");
   }
 
+  // Prevent users from forking their own rituals
+  if (originalRitual.user_id === req.userId) {
+    throw new ForbiddenError("Cannot fork your own ritual");
+  }
+
   const forkedRitual = await db.transaction().execute(async (trx) => {
     // Create new ritual
     const ritual = await trx
@@ -937,9 +996,15 @@ export const getDailySchedule = asyncHandler(
         .selectAll()
         .where("user_id", "=", req.userId)
         .where((eb) => eb.fn("DATE", ["completed_at"]), "=", date)
-        .execute();
-
-      completedRituals = await getFullRitualWithCompletions(completions);
+        .execute()
+        .catch((err) => {
+          throw new InternalError("Failed to get completed rituals", err);
+        });
+      completedRituals = await getFullRitualWithCompletions(completions).catch(
+        (err) => {
+          throw new InternalError("Failed to get completed rituals", err);
+        }
+      );
     }
 
     // 2. Get scheduled rituals for the date (active rituals that aren't completed)
@@ -982,7 +1047,9 @@ export const getDailySchedule = asyncHandler(
       );
     }
 
-    const ritualsWithFrequencies = await ritualsQuery.execute();
+    const ritualsWithFrequencies = await ritualsQuery.execute().catch((err) => {
+      throw new InternalError("Failed to get rituals with frequencies", err);
+    });
 
     // Filter rituals that should be scheduled for the target date
     const scheduledRitualRows = ritualsWithFrequencies.filter((row) => {
@@ -1026,7 +1093,10 @@ export const getDailySchedule = asyncHandler(
         .selectFrom("step_definitions")
         .selectAll()
         .where("ritual_id", "in", ritualIds)
-        .execute();
+        .execute()
+        .catch((err) => {
+          throw new InternalError("Failed to get step definitions", err);
+        });
 
       const physicalQuantitiesUnitsMap: Record<UUID, PhysicalQuantity> = {};
       const physicalQuantityIds = stepDefinitions
@@ -1037,7 +1107,10 @@ export const getDailySchedule = asyncHandler(
           .selectFrom("physical_quantities")
           .selectAll()
           .where("id", "in", physicalQuantityIds)
-          .execute();
+          .execute()
+          .catch((err) => {
+            throw new InternalError("Failed to get physical quantities", err);
+          });
         Object.assign(
           physicalQuantitiesUnitsMap,
           createIdMap(physicalQuantities)
@@ -1061,7 +1134,10 @@ export const getDailySchedule = asyncHandler(
           "in",
           stepDefinitions.map((step) => step.id)
         )
-        .execute();
+        .execute()
+        .catch((err) => {
+          throw new InternalError("Failed to get workout exercises", err);
+        });
 
       const workoutExercises: WorkoutExerciseWithExercise[] =
         workoutExercisesQ.map((we) => ({
@@ -1076,15 +1152,21 @@ export const getDailySchedule = asyncHandler(
           },
         }));
 
-      const workoutSets: WorkoutSet[] = await db
-        .selectFrom("workout_sets")
-        .selectAll()
-        .where(
-          "workout_exercise_id",
-          "in",
-          workoutExercises.map((we) => we.id)
-        )
-        .execute();
+      let workoutSets: WorkoutSet[] = [];
+      if (workoutExercises.length > 0) {
+        workoutSets = await db
+          .selectFrom("workout_sets")
+          .selectAll()
+          .where(
+            "workout_exercise_id",
+            "in",
+            workoutExercises.map((we) => we.id)
+          )
+          .execute()
+          .catch((err) => {
+            throw new InternalError("Failed to get workout sets", err);
+          });
+      }
 
       const fullStepDefinitions = buildFullStepDefinitions(
         stepDefinitions,
@@ -1561,37 +1643,35 @@ async function createWorkoutExercisesAndSets(
         );
       })(),
   }));
+  // Create workout sets with proper indexing
+  const allSetsWithExerciseIds: NewWorkoutSet[] = [];
+  let exerciseIndex = 0;
+  for (const step of Object.values(stepDefinitionFromQuery)) {
+    for (const exercise of step.workout_exercises ?? []) {
+      const workoutExercise = workoutExercises[exerciseIndex];
+      if (!workoutExercise) {
+        throw new InternalError(
+          `Workout exercise not found at index ${exerciseIndex}. Available: ${workoutExercises.length}`
+        );
+      }
 
-  // Create workout sets
-  const workoutSets = await trx
-    .insertInto("workout_sets")
-    .values(
-      Object.values(stepDefinitionFromQuery)
-        .flatMap((step, stepIndex) =>
-          (step.workout_exercises ?? []).flatMap((exercise, exerciseIndex) =>
-            (exercise.workout_sets ?? []).map((set) => ({
-              ...set,
-              workoutExerciseIndex:
-                stepIndex * (step.workout_exercises?.length || 0) +
-                exerciseIndex,
-            }))
-          )
-        )
-        .map((set) => ({
+      (exercise.workout_sets ?? []).forEach((set) => {
+        allSetsWithExerciseIds.push({
           set_number: set.set_number,
-          workout_exercise_id:
-            workoutExercises[set.workoutExerciseIndex]?.id ??
-            (() => {
-              throw new InternalError(
-                `Mismatch between workout exercises length from request and workout exercises from db. Workout exercise ID ${set.workoutExerciseIndex} not found`
-              );
-            })(),
+          workout_exercise_id: workoutExercise.id,
           target_distance_m: set.target_distance_m,
           target_reps: set.target_reps,
           target_seconds: set.target_seconds,
           target_weight_kg: set.target_weight_kg,
-        }))
-    )
+        });
+      });
+
+      exerciseIndex++; // Increment after processing each exercise
+    }
+  }
+  const workoutSets = await trx
+    .insertInto("workout_sets")
+    .values(allSetsWithExerciseIds)
     .returningAll()
     .execute();
 
@@ -1623,14 +1703,14 @@ function buildFullStepDefinitions(
     target_unit_with_data: step.target_unit_reference_id
       ? physicalQuantitiesUnitsMap[step.target_unit_reference_id]
       : undefined,
-    full_workout_exercises: workoutExercisesWithExercise.map(
-      (workoutExercise) => ({
+    full_workout_exercises: workoutExercisesWithExercise
+      .filter((we) => we.step_definition_id === step.id)
+      .map((workoutExercise) => ({
         ...workoutExercise,
         workout_sets: workoutSets.filter(
           (set) => set.workout_exercise_id === workoutExercise.id
         ),
-      })
-    ),
+      })),
   }));
 }
 
