@@ -17,6 +17,23 @@ async function runSeed() {
     // Execute seed
     await pool.query(seed);
 
+    // Apply the custom parser for '_exercise_equipment' type
+    fetchExerciseEquipmentOid()
+      .then((oid) => {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        types.setTypeParser(oid, (val) => {
+          return val === null ? null : val.slice(1, -1).split(",");
+        });
+      })
+      .catch((error) => {
+        console.error(
+          "❌ Error fetching OID for '_exercise_equipment':",
+          error
+        );
+        throw error;
+      });
+
     console.log("✅ Database seed completed successfully");
   } catch (error) {
     console.error("❌ Seed failed:", error);
@@ -32,3 +49,20 @@ if (require.main === module) {
 }
 
 export { runSeed };
+
+// Fetch the OID for the '_exercise_equipment' type
+const fetchExerciseEquipmentOid = async (): Promise<number> => {
+  const client = await pool.connect();
+  try {
+    const res = await client.query(
+      "SELECT oid FROM pg_type WHERE typname = '_exercise_equipment'"
+    );
+    if (res.rows.length > 0) {
+      return res.rows[0].oid;
+    } else {
+      throw new Error("❌ Failed to fetch OID for '_exercise_equipment'");
+    }
+  } finally {
+    client.release();
+  }
+};
