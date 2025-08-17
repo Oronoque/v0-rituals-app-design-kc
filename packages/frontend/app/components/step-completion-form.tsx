@@ -1,5 +1,4 @@
 "use client";
-import { RitualWithConfig } from "@rituals/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -7,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { FullRitual } from "@rituals/shared";
 import { ArrowLeft, Check, CheckCircle } from "lucide-react";
 import { useState } from "react";
 
@@ -25,7 +25,7 @@ interface ExerciseSet {
 }
 
 interface StepCompletionFormProps {
-  ritual: RitualWithConfig;
+  ritual: FullRitual;
   onComplete: (data: any) => void;
   onCancel: () => void;
   isLoading?: boolean;
@@ -97,9 +97,9 @@ export function StepCompletionForm({
             },
           };
           break;
-        case "exercise_set":
+        case "workout":
           value = {
-            type: "exercise_set" as const,
+            type: "workout" as const,
             value: {
               sets_completed: completion?.sets_completed || 0,
               sets: completion?.sets || [],
@@ -239,7 +239,7 @@ export function StepCompletionForm({
                     </div>
                   )}
 
-                  {currentStep.type === "exercise_set" && (
+                  {currentStep.type === "workout" && (
                     <ExerciseSetCompletion
                       step={currentStep}
                       completion={isStepCompleted}

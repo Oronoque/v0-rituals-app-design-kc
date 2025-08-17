@@ -9,9 +9,9 @@ import {
 } from "@/hooks/use-api";
 import { useCurrentUser } from "@/hooks/use-auth";
 import {
-  CompleteRitual,
-  RitualCompletionWithSteps,
-  RitualWithConfig,
+  CompleteRitualSchemaType,
+  FullRitual,
+  FullRitualCompletion,
 } from "@rituals/shared";
 import {
   Calendar,
@@ -33,9 +33,7 @@ interface HomeScreenProps {
 }
 
 export function HomeScreen({ onNavigate }: HomeScreenProps) {
-  const [selectedRitual, setSelectedRitual] = useState<RitualWithConfig | null>(
-    null
-  );
+  const [selectedRitual, setSelectedRitual] = useState<FullRitual | null>(null);
   const [showCompletionForm, setShowCompletionForm] = useState(false);
 
   // Get today's date in YYYY-MM-DD format
@@ -57,13 +55,13 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const totalRituals = scheduledRituals.length + completedRituals.length;
   const completedCount = completedRituals.length;
 
-  const handleStartRitual = (ritual: RitualWithConfig) => {
+  const handleStartRitual = (ritual: FullRitual) => {
     setSelectedRitual(ritual);
     setShowCompletionForm(true);
   };
 
   const handleCompleteRitual = async (
-    completionData: Omit<CompleteRitual, "ritual_id">
+    completionData: Omit<CompleteRitualSchemaType, "ritual_id">
   ) => {
     if (!selectedRitual) return;
 
@@ -357,7 +355,7 @@ function RitualScheduleCard({
   onEdit,
   onDelete,
 }: {
-  ritual: RitualWithConfig;
+  ritual: FullRitual;
   isCompleted: boolean;
   onStart: () => void;
   onEdit: () => void;
@@ -436,10 +434,12 @@ function CompletedRitualCard({
   completion,
   onViewDetails,
 }: {
-  completion: RitualCompletionWithSteps;
+  completion: FullRitualCompletion;
   onViewDetails: () => void;
 }) {
-  const completedAt = new Date(completion.completed_at).toLocaleTimeString([], {
+  const completedAt = new Date(
+    completion.completion_data.completed_at
+  ).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -450,22 +450,17 @@ function CompletedRitualCard({
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <h3 className="text-white font-medium text-base mb-1">
-              {completion.ritual_with_config.name}
+              {completion.name}
             </h3>
             <div className="flex items-center space-x-3 text-sm text-gray-400">
               <span className="flex items-center text-green-400">
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Completed at {completedAt}
               </span>
-              {completion.duration_seconds && (
-                <span>
-                  {Math.round(completion.duration_seconds / 60)} minutes
-                </span>
-              )}
             </div>
-            {completion.notes && (
+            {completion.completion_data.notes && (
               <p className="text-gray-400 text-sm mt-2 italic">
-                "{completion.notes}"
+                "{completion.completion_data.notes}"
               </p>
             )}
           </div>
