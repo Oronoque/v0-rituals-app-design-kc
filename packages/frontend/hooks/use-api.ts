@@ -3,14 +3,12 @@
 import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/query-client";
 import {
-  BatchCompleteRituals,
-  CompleteRitual,
-  CreateRitual,
-  QuickStepResponse,
-  QuickUpdateResponse,
-  RitualWithConfig,
-  UpdateRitual,
-  UpdateRitualCompletion,
+  CompleteRitualSchemaType,
+  CreateRitualSchemaType,
+  ExerciseBodyPart,
+  ExerciseEquipment,
+  ExerciseMeasurementType,
+  FullRitual,
 } from "@rituals/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -112,7 +110,7 @@ export function useCreateRitual() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (ritual: CreateRitual) => api.createRitual(ritual),
+    mutationFn: (ritual: CreateRitualSchemaType) => api.createRitual(ritual),
     onSuccess: (result) => {
       // Invalidate user rituals to refetch
       if (result.isOk()) {
@@ -136,8 +134,13 @@ export function useUpdateRitual() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: UpdateRitual }) =>
-      api.updateRitual(id, updates),
+    mutationFn: ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<CreateRitualSchemaType>;
+    }) => api.updateRitual(id, updates),
     onMutate: async ({ id, updates }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.rituals.byId(id) });
@@ -193,9 +196,7 @@ export function useDeleteRitual() {
         if (!old) return old;
         return {
           ...old,
-          rituals: old.rituals.filter(
-            (ritual: RitualWithConfig) => ritual.id !== id
-          ),
+          rituals: old.rituals.filter((ritual: FullRitual) => ritual.id !== id),
           total: old.total - 1,
         };
       });
@@ -220,7 +221,7 @@ export function useCompleteRitual() {
       completion,
     }: {
       id: string;
-      completion: Omit<CompleteRitual, "ritual_id">;
+      completion: Omit<CompleteRitualSchemaType, "ritual_id">;
     }) => api.completeRitual(id, completion),
     onSuccess: (completedRitual, { id }) => {
       // Invalidate daily schedule to show completion
@@ -252,7 +253,7 @@ export function useUpdateRitualCompletion() {
       updates,
     }: {
       id: string;
-      updates: UpdateRitualCompletion;
+      updates: Partial<CompleteRitualSchemaType>;
     }) => api.updateRitualCompletion(id, updates),
     onSuccess: (updatedCompletion, { id }) => {
       // Invalidate daily schedule to show updated completion
@@ -282,7 +283,7 @@ export function useForkRitual() {
           if (!old) return old;
           return {
             ...old,
-            rituals: old.rituals.map((ritual: RitualWithConfig) =>
+            rituals: old.rituals.map((ritual: FullRitual) =>
               ritual.id === originalId
                 ? { ...ritual, fork_count: ritual.fork_count + 1 }
                 : ritual
@@ -315,23 +316,18 @@ export function usePublishRitual() {
 
   return useMutation({
     mutationFn: (id: string) => api.publishRitual(id),
-    onSuccess: (result) => {
+    onSuccess: (result, id) => {
       if (result.isOk()) {
         // Update in user rituals
         queryClient.invalidateQueries({ queryKey: queryKeys.rituals.user() });
 
-        // Update in individual cache
-        queryClient.setQueryData(
-          queryKeys.rituals.byId(result.value.data.id),
-          result.value.data
-        );
+        // Invalidate individual cache to refetch updated ritual
+        queryClient.invalidateQueries({ queryKey: queryKeys.rituals.byId(id) });
 
         // Invalidate public rituals to show the newly published ritual
         queryClient.invalidateQueries({ queryKey: queryKeys.rituals.public() });
 
-        toast.success(
-          `"${result.value.data.name}" published to public library!`
-        );
+        toast.success("Ritual published to public library!");
       } else {
         toast.error(result.error.message || "Failed to publish ritual");
       }
@@ -344,16 +340,13 @@ export function useUnpublishRitual() {
 
   return useMutation({
     mutationFn: (id: string) => api.unpublishRitual(id),
-    onSuccess: (result) => {
+    onSuccess: (result, id) => {
       if (result.isOk()) {
         // Update in user rituals
         queryClient.invalidateQueries({ queryKey: queryKeys.rituals.user() });
 
-        // Update in individual cache
-        queryClient.setQueryData(
-          queryKeys.rituals.byId(result.value.data.id),
-          result.value.data
-        );
+        // Invalidate individual cache to refetch updated ritual
+        queryClient.invalidateQueries({ queryKey: queryKeys.rituals.byId(id) });
 
         // Remove from public rituals cache
         queryClient.setQueryData(queryKeys.rituals.public(), (old: any) => {
@@ -361,15 +354,13 @@ export function useUnpublishRitual() {
           return {
             ...old,
             rituals: old.rituals.filter(
-              (ritual: RitualWithConfig) => ritual.id !== result.value.data.id
+              (ritual: FullRitual) => ritual.id !== id
             ),
             total: old.total - 1,
           };
         });
 
-        toast.success(
-          `"${result.value.data.name}" unpublished from public library`
-        );
+        toast.success("Ritual unpublished from public library");
       } else {
         toast.error(result.error.message || "Failed to unpublish ritual");
       }
@@ -377,82 +368,83 @@ export function useUnpublishRitual() {
   });
 }
 
-// Quick Step Operations Hooks
-export function useCreateQuickStepResponse() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      id,
-      stepData,
-    }: {
-      id: string;
-      stepData: QuickStepResponse;
-    }) => api.createQuickStepResponse(id, stepData),
-    onSuccess: (_, { id }) => {
-      // Invalidate daily schedule and ritual stats
-      queryClient.invalidateQueries({ queryKey: queryKeys.daily.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.rituals.stats(id) });
-
-      toast.success("Step response added successfully!");
-    },
-  });
-}
-
-export function useUpdateQuickStepResponse() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      id,
-      updateData,
-    }: {
-      id: string;
-      updateData: QuickUpdateResponse;
-    }) => api.updateQuickStepResponse(id, updateData),
-    onSuccess: (_, { id }) => {
-      // Invalidate daily schedule and ritual stats
-      queryClient.invalidateQueries({ queryKey: queryKeys.daily.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.rituals.stats(id) });
-
-      toast.success("Step response updated successfully!");
-    },
-  });
-}
-
-// Batch Operations Hooks
-export function useBatchCompleteRituals() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (batchData: BatchCompleteRituals) =>
-      api.batchCompleteRituals(batchData),
-    onSuccess: (result, variables) => {
+// Exercise Hooks
+export function useExercises(params?: {
+  body_part?: ExerciseBodyPart;
+  equipment?: ExerciseEquipment;
+  measurement_type?: ExerciseMeasurementType;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  return useQuery({
+    queryKey: queryKeys.exercises.list(params),
+    queryFn: async () => {
+      const result = await api.getExercises(params);
       if (result.isOk()) {
-        // Invalidate all relevant queries
-        queryClient.invalidateQueries({ queryKey: queryKeys.daily.all });
-        queryClient.invalidateQueries({ queryKey: queryKeys.rituals.all });
-
-        // Update completion counts for affected rituals
-        variables.completions.forEach((completion: any) => {
-          queryClient.setQueryData(
-            queryKeys.rituals.byId(completion.ritual_id),
-            (old: any) => {
-              if (!old) return old;
-              return {
-                ...old,
-                completion_count: old.completion_count + 1,
-              };
-            }
-          );
-        });
-
-        toast.success(
-          `🎉 ${result.value.data.total_completed} rituals completed successfully!`
-        );
+        return result.value.data;
       } else {
-        toast.error(result.error.message || "Failed to complete rituals");
+        toast.error(result.error.message || "Failed to fetch exercises");
+        return null;
       }
     },
+    staleTime: 10 * 60 * 1000, // Exercises cache for 10 minutes
+  });
+}
+
+export function useExerciseById(id: string) {
+  return useQuery({
+    queryKey: queryKeys.exercises.byId(id),
+    queryFn: async () => {
+      const result = await api.getExerciseById(id);
+      if (result.isOk()) {
+        return result.value.data;
+      } else {
+        toast.error(result.error.message || "Failed to fetch exercise");
+        return null;
+      }
+    },
+    enabled: !!id,
+  });
+}
+
+// Physical Quantities Hooks
+export function usePhysicalQuantities(params?: {
+  search?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  return useQuery({
+    queryKey: queryKeys.physicalQuantities.list(params),
+    queryFn: async () => {
+      const result = await api.getPhysicalQuantities(params);
+      if (result.isOk()) {
+        return result.value.data;
+      } else {
+        toast.error(
+          result.error.message || "Failed to fetch physical quantities"
+        );
+        return null;
+      }
+    },
+    staleTime: 30 * 60 * 1000, // Physical quantities cache for 30 minutes (rarely change)
+  });
+}
+
+export function usePhysicalQuantityById(id: string) {
+  return useQuery({
+    queryKey: queryKeys.physicalQuantities.byId(id),
+    queryFn: async () => {
+      const result = await api.getPhysicalQuantityById(id);
+      if (result.isOk()) {
+        return result.value.data;
+      } else {
+        toast.error(
+          result.error.message || "Failed to fetch physical quantity"
+        );
+        return null;
+      }
+    },
+    enabled: !!id,
   });
 }

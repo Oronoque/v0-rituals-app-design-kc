@@ -2,17 +2,17 @@ import {
   ApiErrorResponse,
   ApiResult,
   ApiSuccess,
-  BatchCompleteRituals,
-  CompleteRitual,
-  CreateRitual,
+  CompleteRitualSchemaType,
+  CreateRitualSchemaType,
+  Exercise,
+  ExerciseBodyPart,
+  ExerciseEquipment,
+  ExerciseMeasurementType,
+  FullRitual,
+  FullRitualCompletion,
   LoginRequest,
-  QuickStepResponse,
-  QuickUpdateResponse,
+  PhysicalQuantity,
   RegisterRequest,
-  RitualCompletionWithSteps,
-  RitualWithConfig,
-  UpdateRitual,
-  UpdateRitualCompletion,
   UserDailySchedule,
   UserProfileResponse,
 } from "@rituals/shared";
@@ -111,14 +111,14 @@ export class ApiClient {
   // Daily Schedule Methods
   async getDailySchedule(date: string): Promise<ApiResult<UserDailySchedule>> {
     const params = new URLSearchParams({ date });
-    return this.request<UserDailySchedule>(`/daily-rituals/schedule?${params}`);
+    return this.request<UserDailySchedule>(`/rituals/daily-schedule?${params}`);
   }
 
   // Ritual Methods
   async createRitual(
-    ritual: CreateRitual
-  ): Promise<ApiResult<RitualWithConfig>> {
-    return this.request<RitualWithConfig>("/rituals", {
+    ritual: CreateRitualSchemaType
+  ): Promise<ApiResult<FullRitual>> {
+    return this.request<FullRitual>("/rituals", {
       method: "POST",
       body: JSON.stringify(ritual),
     });
@@ -130,7 +130,7 @@ export class ApiClient {
     search?: string;
     limit?: number;
     offset?: number;
-  }): Promise<ApiResult<{ rituals: RitualWithConfig[]; total: number }>> {
+  }): Promise<ApiResult<{ rituals: FullRitual[]; total: number }>> {
     const params = new URLSearchParams();
     if (options?.filter) params.append("filter", options.filter);
     if (options?.category) params.append("category", options.category);
@@ -139,11 +139,11 @@ export class ApiClient {
     if (options?.offset) params.append("offset", options.offset.toString());
 
     const queryString = params.toString();
-    const endpoint = queryString ? `/rituals?${queryString}` : "/rituals";
+    const endpoint = queryString
+      ? `/rituals/user?${queryString}`
+      : "/rituals/user";
 
-    return this.request<{ rituals: RitualWithConfig[]; total: number }>(
-      endpoint
-    );
+    return this.request<{ rituals: FullRitual[]; total: number }>(endpoint);
   }
 
   async getPublicRituals(options?: {
@@ -151,7 +151,7 @@ export class ApiClient {
     category?: string;
     limit?: number;
     offset?: number;
-  }): Promise<ApiResult<{ rituals: RitualWithConfig[]; total: number }>> {
+  }): Promise<ApiResult<{ rituals: FullRitual[]; total: number }>> {
     const params = new URLSearchParams();
     if (options?.search) params.append("search", options.search);
     if (options?.category) params.append("category", options.category);
@@ -163,13 +163,11 @@ export class ApiClient {
       ? `/rituals/public?${queryString}`
       : "/rituals/public";
 
-    return this.request<{ rituals: RitualWithConfig[]; total: number }>(
-      endpoint
-    );
+    return this.request<{ rituals: FullRitual[]; total: number }>(endpoint);
   }
 
-  async getRitualById(id: string): Promise<ApiResult<RitualWithConfig>> {
-    return this.request<RitualWithConfig>(`/rituals/${id}`);
+  async getRitualById(id: string): Promise<ApiResult<FullRitual>> {
+    return this.request<FullRitual>(`/rituals/${id}`);
   }
 
   async getRitualStats(id: string): Promise<
@@ -184,25 +182,25 @@ export class ApiClient {
 
   async updateRitual(
     id: string,
-    updates: UpdateRitual
-  ): Promise<ApiResult<RitualWithConfig>> {
-    return this.request<RitualWithConfig>(`/rituals/${id}`, {
+    updates: Partial<CreateRitualSchemaType>
+  ): Promise<ApiResult<FullRitual>> {
+    return this.request<FullRitual>(`/rituals/${id}`, {
       method: "PUT",
       body: JSON.stringify(updates),
     });
   }
 
-  async deleteRitual(id: string): Promise<void> {
-    await this.request(`/rituals/${id}`, {
+  async deleteRitual(id: string): Promise<ApiResult<void>> {
+    return this.request<void>(`/rituals/${id}`, {
       method: "DELETE",
     });
   }
 
   async completeRitual(
     id: string,
-    completion: Omit<CompleteRitual, "ritual_id">
-  ): Promise<ApiResult<RitualCompletionWithSteps>> {
-    return this.request<RitualCompletionWithSteps>(`/rituals/${id}/complete`, {
+    completion: Omit<CompleteRitualSchemaType, "ritual_id">
+  ): Promise<ApiResult<FullRitualCompletion>> {
+    return this.request<FullRitualCompletion>(`/rituals/${id}/complete`, {
       method: "POST",
       body: JSON.stringify(completion),
     });
@@ -210,61 +208,90 @@ export class ApiClient {
 
   async updateRitualCompletion(
     id: string,
-    updates: UpdateRitualCompletion
-  ): Promise<ApiResult<RitualCompletionWithSteps>> {
-    return this.request<RitualCompletionWithSteps>(`/rituals/${id}/complete`, {
+    updates: Partial<CompleteRitualSchemaType>
+  ): Promise<ApiResult<FullRitualCompletion>> {
+    return this.request<FullRitualCompletion>(`/rituals/${id}/complete`, {
       method: "PUT",
       body: JSON.stringify(updates),
     });
   }
 
-  async forkRitual(id: string): Promise<ApiResult<RitualWithConfig>> {
-    return this.request<RitualWithConfig>(`/rituals/${id}/fork`, {
+  async forkRitual(id: string): Promise<ApiResult<FullRitual>> {
+    return this.request<FullRitual>(`/rituals/${id}/fork`, {
       method: "POST",
     });
   }
 
-  async publishRitual(id: string): Promise<ApiResult<RitualWithConfig>> {
-    return this.request<RitualWithConfig>(`/rituals/${id}/publish`, {
+  async publishRitual(id: string): Promise<ApiResult<void>> {
+    return this.request<void>(`/rituals/${id}/publish`, {
       method: "POST",
     });
   }
 
-  async unpublishRitual(id: string): Promise<ApiResult<RitualWithConfig>> {
-    return this.request<RitualWithConfig>(`/rituals/${id}/unpublish`, {
+  async unpublishRitual(id: string): Promise<ApiResult<void>> {
+    return this.request<void>(`/rituals/${id}/unpublish`, {
       method: "POST",
     });
   }
 
-  // Quick Step Operations
-  async createQuickStepResponse(
-    id: string,
-    stepData: QuickStepResponse
-  ): Promise<ApiResult<any>> {
-    return this.request(`/rituals/${id}/quick-step`, {
-      method: "POST",
-      body: JSON.stringify(stepData),
-    });
+  // Exercise Methods
+  async getExercises(options?: {
+    body_part?: ExerciseBodyPart;
+    equipment?: ExerciseEquipment;
+    measurement_type?: ExerciseMeasurementType;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiResult<{ exercises: Exercise[]; total: number }>> {
+    const params = new URLSearchParams();
+    if (options?.body_part) params.append("body_part", options.body_part);
+    if (options?.equipment) params.append("equipment", options.equipment);
+    if (options?.measurement_type)
+      params.append("measurement_type", options.measurement_type);
+    if (options?.search) params.append("search", options.search);
+    if (options?.limit) params.append("limit", options.limit.toString());
+    if (options?.offset) params.append("offset", options.offset.toString());
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `/exercises?${queryString}` : "/exercises";
+
+    return this.request<{ exercises: Exercise[]; total: number }>(endpoint);
   }
 
-  async updateQuickStepResponse(
-    id: string,
-    updateData: QuickUpdateResponse
-  ): Promise<ApiResult<any>> {
-    return this.request(`/rituals/${id}/quick-update`, {
-      method: "PUT",
-      body: JSON.stringify(updateData),
-    });
+  async getExerciseById(id: string): Promise<ApiResult<Exercise>> {
+    return this.request<Exercise>(`/exercises/${id}`);
   }
 
-  // Batch Operations
-  async batchCompleteRituals(
-    batchData: BatchCompleteRituals
-  ): Promise<ApiResult<{ completions: any[]; total_completed: number }>> {
-    return this.request(`/rituals/batch-complete`, {
-      method: "POST",
-      body: JSON.stringify(batchData),
-    });
+  // Physical Quantities Methods
+  async getPhysicalQuantities(options?: {
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<
+    ApiResult<{ physical_quantities: PhysicalQuantity[]; total: number }>
+  > {
+    const params = new URLSearchParams();
+    if (options?.search) params.append("search", options.search);
+    if (options?.limit) params.append("limit", options.limit.toString());
+    if (options?.offset) params.append("offset", options.offset.toString());
+
+    const queryString = params.toString();
+    const endpoint = queryString
+      ? `/exercises/physical-quantities?${queryString}`
+      : "/exercises/physical-quantities";
+
+    return this.request<{
+      physical_quantities: PhysicalQuantity[];
+      total: number;
+    }>(endpoint);
+  }
+
+  async getPhysicalQuantityById(
+    id: string
+  ): Promise<ApiResult<PhysicalQuantity>> {
+    return this.request<PhysicalQuantity>(
+      `/exercises/physical-quantities/${id}`
+    );
   }
 }
 
@@ -283,7 +310,8 @@ export const api = {
   getDailySchedule: (date: string) => apiClient.getDailySchedule(date),
 
   // Rituals
-  createRitual: (ritual: CreateRitual) => apiClient.createRitual(ritual),
+  createRitual: (ritual: CreateRitualSchemaType) =>
+    apiClient.createRitual(ritual),
   getUserRituals: (options?: Parameters<typeof apiClient.getUserRituals>[0]) =>
     apiClient.getUserRituals(options),
   getPublicRituals: (
@@ -291,24 +319,30 @@ export const api = {
   ) => apiClient.getPublicRituals(options),
   getRitualById: (id: string) => apiClient.getRitualById(id),
   getRitualStats: (id: string) => apiClient.getRitualStats(id),
-  updateRitual: (id: string, updates: UpdateRitual) =>
+  updateRitual: (id: string, updates: Partial<CreateRitualSchemaType>) =>
     apiClient.updateRitual(id, updates),
   deleteRitual: (id: string) => apiClient.deleteRitual(id),
-  completeRitual: (id: string, completion: Omit<CompleteRitual, "ritual_id">) =>
-    apiClient.completeRitual(id, completion),
-  updateRitualCompletion: (id: string, updates: UpdateRitualCompletion) =>
-    apiClient.updateRitualCompletion(id, updates),
+  completeRitual: (
+    id: string,
+    completion: Omit<CompleteRitualSchemaType, "ritual_id">
+  ) => apiClient.completeRitual(id, completion),
+  updateRitualCompletion: (
+    id: string,
+    updates: Partial<CompleteRitualSchemaType>
+  ) => apiClient.updateRitualCompletion(id, updates),
   forkRitual: (id: string) => apiClient.forkRitual(id),
   publishRitual: (id: string) => apiClient.publishRitual(id),
   unpublishRitual: (id: string) => apiClient.unpublishRitual(id),
 
-  // Quick Step Operations
-  createQuickStepResponse: (id: string, stepData: QuickStepResponse) =>
-    apiClient.createQuickStepResponse(id, stepData),
-  updateQuickStepResponse: (id: string, updateData: QuickUpdateResponse) =>
-    apiClient.updateQuickStepResponse(id, updateData),
+  // Exercises
+  getExercises: (options?: Parameters<typeof apiClient.getExercises>[0]) =>
+    apiClient.getExercises(options),
+  getExerciseById: (id: string) => apiClient.getExerciseById(id),
 
-  // Batch Operations
-  batchCompleteRituals: (batchData: BatchCompleteRituals) =>
-    apiClient.batchCompleteRituals(batchData),
+  // Physical Quantities
+  getPhysicalQuantities: (
+    options?: Parameters<typeof apiClient.getPhysicalQuantities>[0]
+  ) => apiClient.getPhysicalQuantities(options),
+  getPhysicalQuantityById: (id: string) =>
+    apiClient.getPhysicalQuantityById(id),
 };
