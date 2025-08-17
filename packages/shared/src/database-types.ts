@@ -2,57 +2,60 @@ import {
   ColumnType,
   Generated,
   Insertable,
-  JSONColumnType,
   Selectable,
   Updateable,
 } from "kysely";
-import z from "zod";
-import * as zodSchema from "./schemas";
 
 // ===========================================
 // ENUMS
 // ===========================================
 
-export type UserRole = z.infer<typeof zodSchema.userRoleSchema>;
+export type RitualFrequencyType = "once" | "daily" | "weekly" | "custom";
+export type RitualCategory =
+  | "wellness"
+  | "fitness"
+  | "productivity"
+  | "learning"
+  | "spiritual"
+  | "social"
+  | "other";
 
-export type RitualFrequencyType = z.infer<
-  typeof zodSchema.ritualFrequencyTypeSchema
->;
-export type RitualCategory = z.infer<typeof zodSchema.ritualCategorySchema>;
+// Added 'workout' type that was missing
+export type StepType =
+  | "boolean"
+  | "counter"
+  | "qna"
+  | "timer"
+  | "scale"
+  | "workout";
 
-export type StepType = z.infer<typeof zodSchema.stepTypeSchema>;
+export type ExerciseBodyPart =
+  | "core"
+  | "arms"
+  | "back"
+  | "legs"
+  | "olympic"
+  | "full_body"
+  | "cardio"
+  | "other";
 
-export type ProgressionType = z.infer<typeof zodSchema.progressionTypeSchema>;
+export type ExerciseMeasurementType =
+  | "weight_reps"
+  | "reps"
+  | "time"
+  | "distance_time";
 
-export type ExerciseType = z.infer<typeof zodSchema.exerciseTypeSchema>;
-
-export type PrimaryMuscleGroup = z.infer<
-  typeof zodSchema.primaryMuscleGroupSchema
->;
-
-export type SecondaryMuscleGroup = z.infer<
-  typeof zodSchema.secondaryMuscleGroupSchema
->;
-
-export type Equipment = z.infer<typeof zodSchema.equipmentSchema>;
-export type Mechanics = z.infer<typeof zodSchema.mechanicsSchema>;
-
-export type WorkoutSetType = z.infer<typeof zodSchema.workoutSetTypeSchema>;
-export type WorkoutSetUnit = z.infer<typeof zodSchema.workoutSetUnitSchema>;
-
-export type MassUnit = z.infer<typeof zodSchema.massUnitSchema>;
-export type LengthUnit = z.infer<typeof zodSchema.lengthUnitSchema>;
-export type TempUnit = z.infer<typeof zodSchema.tempUnitSchema>;
-export type TimeUnit = z.infer<typeof zodSchema.timeUnitSchema>;
-export type DistanceUnit = z.infer<typeof zodSchema.distanceUnitSchema>;
-export type PercentageUnit = z.infer<typeof zodSchema.percentageUnitSchema>;
-
-export type MeasurementWithUnit = z.infer<
-  typeof zodSchema.measurementWithUnitSchema
->;
-
-export type MoodScaleType = z.infer<typeof zodSchema.moodScaleTypeSchema>;
-export type MoodValue = z.infer<typeof zodSchema.moodValueSchema>;
+export type ExerciseEquipment =
+  | "body_weight"
+  | "dumbbell"
+  | "barbell"
+  | "kettlebell"
+  | "band"
+  | "plate"
+  | "pull_up_bar"
+  | "bench"
+  | "machine"
+  | "other";
 
 // ===========================================
 // DATABASE TABLE INTERFACES
@@ -60,11 +63,16 @@ export type MoodValue = z.infer<typeof zodSchema.moodValueSchema>;
 
 export interface Database {
   users: UsersTable;
+  physical_quantities: PhysicalQuantitiesTable;
+  exercises: ExercisesTable;
   rituals: RitualsTable;
   ritual_frequencies: RitualFrequenciesTable;
   ritual_completions: RitualCompletionsTable;
-  step_definitions: StepDefinitionsTable<StepType>;
-  step_responses: StepResponsesTable<StepType>;
+  step_definitions: StepDefinitionsTable;
+  workout_exercises: WorkoutExercisesTable;
+  workout_sets: WorkoutSetsTable;
+  step_responses: StepResponsesTable;
+  workout_set_responses: WorkoutSetResponsesTable;
 }
 
 // Users table
@@ -74,9 +82,7 @@ export interface UsersTable {
   password_hash: string;
   first_name: string;
   last_name: string;
-  role: UserRole;
   current_streak: number;
-  timezone: string; // Store UTC offset (e.g., "+05:00", "-08:00", "+00:00")
   created_at: ColumnType<Date, string | undefined, never>;
   updated_at: ColumnType<Date, string | undefined, string | undefined>;
 }
@@ -86,15 +92,15 @@ export interface RitualsTable {
   id: Generated<string>;
   user_id: string;
   name: string;
-  description: string | null;
+  description: string | undefined;
   category: RitualCategory;
-  location: string | null;
-  gear: string[] | null;
+  location: string | undefined;
+  gear: string[] | undefined;
   is_public: boolean;
   is_active: boolean;
-  forked_from_id: string | null;
-  fork_count: number;
-  completion_count: number;
+  forked_from_id: string | undefined;
+  fork_count: Generated<number>;
+  completion_count: Generated<number>;
   created_at: ColumnType<Date, string | undefined, never>;
   updated_at: ColumnType<Date, string | undefined, string | undefined>;
 }
@@ -105,8 +111,9 @@ export interface RitualFrequenciesTable {
   ritual_id: string;
   frequency_type: RitualFrequencyType;
   frequency_interval: number;
-  days_of_week: number[] | null;
-  specific_dates: string[] | null;
+  days_of_week: number[] | undefined;
+  specific_dates: string[] | undefined; // Note: These should be Date[] if you want proper type safety
+  exclude_dates: string[] | undefined; // Note: These should be Date[] if you want proper type safety
   created_at: ColumnType<Date, string | undefined, never>;
 }
 
@@ -115,107 +122,98 @@ export interface RitualCompletionsTable {
   id: Generated<string>;
   user_id: string;
   ritual_id: string;
-  completed_date: string; // DATE type
   completed_at: ColumnType<Date, string | undefined, never>;
-  duration_seconds: number | null;
-  notes: string | null;
+  notes: string | undefined;
+  created_at: ColumnType<Date, string | undefined, never>;
+}
+
+export interface PhysicalQuantitiesTable {
+  id: Generated<string>;
+  name: string; // e.g. "distance", "weight", "time", "temperature", "volume", "current", "luminous_intensity"
+  m_exp: number; // metre exponent
+  kg_exp: number; // kilogram exponent
+  s_exp: number; // second exponent
+  A_exp: number; // ampere exponent
+  K_exp: number; // kelvin exponent
+  mol_exp: number; // mole exponent
+  cd_exp: number; // candela exponent
+}
+
+export interface ExercisesTable {
+  id: Generated<string>;
+  name: string;
+  body_part: ExerciseBodyPart;
+  measurement_type: ExerciseMeasurementType;
+  equipment: ExerciseEquipment[] | undefined;
   created_at: ColumnType<Date, string | undefined, never>;
 }
 
 // Step definitions table (templates within rituals)
-export interface StepDefinitionsTable<T extends StepType> {
+export interface StepDefinitionsTable {
   id: Generated<string>;
   ritual_id: string;
   order_index: number;
-  type: T;
+  type: StepType;
   name: string;
-  config: JSONColumnType<StepConfigOf<T>>;
   is_required: boolean;
+  // non-workout steps
+  // for counter
+  target_count: number | undefined; // the target count value
+  target_unit_reference_id: string | undefined; // reference to physical_quantities.id
+  // for timer
+  target_seconds: number | undefined;
+  // for scale
+  min_value: number | undefined;
+  max_value: number | undefined;
   created_at: ColumnType<Date, string | undefined, never>;
 }
 
-// Step responses table (single table with JSONB)
-export interface StepResponsesTable<T extends StepType> {
+export interface WorkoutExercisesTable {
+  id: Generated<string>;
+  step_definition_id: string; // reference to step_definitions.id
+  exercise_id: string; // reference to exercises.id
+  order_index: number;
+}
+
+export interface WorkoutSetsTable {
+  id: Generated<string>;
+  workout_exercise_id: string; // reference to workout_exercises.id
+  set_number: number;
+  target_weight_kg: number | undefined;
+  target_reps: number | undefined;
+  target_seconds: number | undefined;
+  target_distance_m: number | undefined;
+  created_at: ColumnType<Date, string | undefined, never>;
+}
+
+// Step responses table
+export interface StepResponsesTable {
   id: Generated<string>;
   ritual_completion_id: string;
   step_definition_id: string;
-  value: JSONColumnType<StepResponseOf<T>>;
-  response_time_ms: number | null;
+  // Response fields
+  // counter response
+  actual_count: number | undefined;
+  // boolean response
+  value_boolean: boolean | undefined;
+  // timer response
+  actual_seconds: number | undefined;
+  // scale response
+  scale_response: number | undefined;
+  // qna response
+  answer: string | undefined;
   created_at: ColumnType<Date, string | undefined, never>;
 }
 
-// ===========================================
-// JSONB DATA TYPES
-// ===========================================
-
-// Step config data types (stored in JSONB)
-
-export type BooleanStepConfigData = z.infer<
-  typeof zodSchema.booleanStepConfigSchema
->;
-
-export type CounterStepConfigData = z.infer<
-  typeof zodSchema.counterStepConfigSchema
->;
-
-export type QnaStepConfigData = z.infer<typeof zodSchema.qnaStepConfigSchema>;
-
-export type ScaleStepConfigData = z.infer<
-  typeof zodSchema.scaleStepConfigSchema
->;
-
-export type TimerStepConfigData = z.infer<
-  typeof zodSchema.timerStepConfigSchema
->;
-
-export type ExerciseSetStepConfigData = z.infer<
-  typeof zodSchema.exerciseSetStepConfigSchema
->;
-
-export type StepConfigOf<T extends StepType> = StepConfigMap[T];
-
-export interface StepConfigMap {
-  boolean: BooleanStepConfigData;
-  counter: CounterStepConfigData;
-  qna: QnaStepConfigData;
-  scale: ScaleStepConfigData;
-  timer: TimerStepConfigData;
-  exercise_set: ExerciseSetStepConfigData;
-}
-
-export type BooleanStepResponseData = z.infer<
-  typeof zodSchema.booleanStepResponseSchema
->;
-
-export type CounterStepResponseData = z.infer<
-  typeof zodSchema.counterStepResponseSchema
->;
-
-export type QnaStepResponseData = z.infer<
-  typeof zodSchema.qnaStepResponseSchema
->;
-
-export type ScaleStepResponseData = z.infer<
-  typeof zodSchema.scaleStepResponseSchema
->;
-
-export type TimerStepResponseData = z.infer<
-  typeof zodSchema.timerStepResponseSchema
->;
-
-export type ExerciseSetStepResponseData = z.infer<
-  typeof zodSchema.exerciseSetStepResponseSchema
->;
-
-export type StepResponseOf<T extends StepType> = StepResponseMap[T];
-
-export interface StepResponseMap {
-  boolean: BooleanStepResponseData;
-  counter: CounterStepResponseData;
-  qna: QnaStepResponseData;
-  scale: ScaleStepResponseData;
-  timer: TimerStepResponseData;
-  exercise_set: ExerciseSetStepResponseData;
+export interface WorkoutSetResponsesTable {
+  id: Generated<string>;
+  step_response_id: string; // reference to step_responses.id
+  workout_set_id: string; // reference to workout_sets.id
+  actual_weight_kg: number | undefined;
+  actual_reps: number | undefined;
+  actual_seconds: number | undefined;
+  actual_distance_m: number | undefined;
+  created_at: ColumnType<Date, string | undefined, never>; // Added missing created_at
 }
 
 // ===========================================
@@ -243,62 +241,46 @@ export type RitualCompletion = Selectable<RitualCompletionsTable>;
 export type NewRitualCompletion = Insertable<RitualCompletionsTable>;
 export type RitualCompletionUpdate = Updateable<RitualCompletionsTable>;
 
+// Physical Quantities
+export type PhysicalQuantity = Selectable<PhysicalQuantitiesTable>;
+export type NewPhysicalQuantity = Insertable<PhysicalQuantitiesTable>;
+export type PhysicalQuantityUpdate = Updateable<PhysicalQuantitiesTable>;
+
+// Exercises
+export type Exercise = Selectable<ExercisesTable>;
+export type NewExercise = Insertable<ExercisesTable>;
+export type ExerciseUpdate = Updateable<ExercisesTable>;
+
 // Step Definitions
-export type StepDefinition<T extends StepType> = Selectable<
-  StepDefinitionsTable<T>
->;
-export type NewStepDefinition<T extends StepType> = Insertable<
-  StepDefinitionsTable<T>
->;
-export type StepDefinitionUpdate<T extends StepType> = Updateable<
-  StepDefinitionsTable<T>
->;
+export type StepDefinition = Selectable<StepDefinitionsTable>;
+export type NewStepDefinition = Insertable<StepDefinitionsTable>;
+export type StepDefinitionUpdate = Updateable<StepDefinitionsTable>;
+
+// Workout Exercises
+export type WorkoutExercise = Selectable<WorkoutExercisesTable>;
+export type NewWorkoutExercise = Insertable<WorkoutExercisesTable>;
+export type WorkoutExerciseUpdate = Updateable<WorkoutExercisesTable>;
+
+// Workout Sets
+export type WorkoutSet = Selectable<WorkoutSetsTable>;
+export type NewWorkoutSet = Insertable<WorkoutSetsTable>;
+export type WorkoutSetUpdate = Updateable<WorkoutSetsTable>;
 
 // Step Responses
-export type StepResponse<T extends StepType> = Selectable<
-  StepResponsesTable<T>
->;
-export type NewStepResponse<T extends StepType> = Insertable<
-  StepResponsesTable<T>
->;
-export type StepResponseUpdate<T extends StepType> = Updateable<
-  StepResponsesTable<T>
->;
+export type StepResponse = Selectable<StepResponsesTable>;
+export type NewStepResponse = Insertable<StepResponsesTable>;
+export type StepResponseUpdate = Updateable<StepResponsesTable>;
+
+// Workout Set Responses
+export type WorkoutSetResponse = Selectable<WorkoutSetResponsesTable>;
+export type NewWorkoutSetResponse = Insertable<WorkoutSetResponsesTable>;
+export type WorkoutSetResponseUpdate = Updateable<WorkoutSetResponsesTable>;
 
 // ===========================================
 // RELATIONSHIP TYPES
 // ===========================================
 
-export type AnyStepType = StepType;
-export type AnyStepDefinition = StepDefinition<AnyStepType>;
-export type AnyStepResponse = StepResponse<AnyStepType>;
-export type AnyStepResponseWithDefinition =
-  StepResponseWithStepDefinition<AnyStepType>;
-
-export interface RitualWithConfig extends Ritual {
-  frequency: RitualFrequency;
-  step_definitions: AnyStepDefinition[];
-}
-
-export type StepResponseWithStepDefinition<T extends StepType = AnyStepType> =
-  StepResponse<T> & {
-    step_definition: StepDefinition<T>;
-  };
-
-export interface RitualCompletionWithSteps extends RitualCompletion {
-  ritual_with_config: RitualWithConfig;
-  step_responses: AnyStepResponseWithDefinition[];
-}
-
-export interface UserDailySchedule {
-  user_id: string;
-  date: string;
-  scheduled_rituals: RitualWithConfig[];
-  completed_rituals: RitualCompletionWithSteps[];
-}
-
 // Alias for backward compatibility
-export type RitualWithSteps = RitualWithConfig;
 
 // User progress summary
 export interface UserProgress {
@@ -307,4 +289,42 @@ export interface UserProgress {
   total_completions: number;
   completion_rate: number;
   favorite_categories: RitualCategory[];
+}
+
+export interface WorkoutExerciseWithExercise extends WorkoutExercise {
+  exercise: Exercise;
+}
+
+export interface FullWorkoutExercise extends WorkoutExerciseWithExercise {
+  workout_sets: WorkoutSet[];
+}
+
+export interface StepDefinitionWithCounter extends StepDefinition {
+  target_unit_with_data: PhysicalQuantity | undefined;
+}
+
+export interface FullStepDefinition extends StepDefinitionWithCounter {
+  full_workout_exercises?: FullWorkoutExercise[];
+}
+
+export interface FullRitual extends Ritual {
+  frequency: RitualFrequency;
+  step_definitions: FullStepDefinition[];
+}
+
+export interface FullStepResponse extends StepResponse {
+  workout_set_responses: WorkoutSetResponse[];
+}
+
+export interface FullRitualCompletion extends FullRitual {
+  completion_data: RitualCompletion;
+  step_responses: FullStepResponse[];
+}
+
+// Daily schedule types
+export interface UserDailySchedule {
+  user_id: string;
+  date: string; // YYYY-MM-DD format
+  scheduled_rituals: FullRitual[];
+  completed_rituals: FullRitualCompletion[];
 }
