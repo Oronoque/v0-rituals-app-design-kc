@@ -16,12 +16,12 @@ FROM base AS deps
 # Copy root-level and package-level files
 COPY package.json bun.lock* ./
 COPY tsconfig.json ./
-COPY packages/shared/tsconfig.json ./packages/shared/
-COPY packages/backend/tsconfig.json ./packages/backend/
-COPY packages/frontend/tsconfig.json ./packages/frontend/
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/frontend/package.json ./packages/frontend/
-COPY packages/backend/package.json ./packages/backend/
+COPY shared/tsconfig.json ./shared/
+COPY backend/tsconfig.json ./backend/
+COPY frontend/tsconfig.json ./frontend/
+COPY shared/package.json ./shared/
+COPY frontend/package.json ./frontend/
+COPY backend/package.json ./backend/
 
 # Install all deps (for all packages)
 RUN bun install --frozen-lockfile
@@ -31,19 +31,19 @@ RUN bun install --frozen-lockfile
 FROM base AS shared-builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY packages/shared ./packages/shared
+COPY shared ./shared
 COPY package.json ./
 RUN bun run build:shared
 # remove source code
-RUN rm -rf packages/shared/src
+RUN rm -rf shared/src
 
 # ------------------------------------
 # Build backend
 FROM base AS backend-builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=shared-builder /app/packages/shared ./packages/shared
-COPY packages/backend ./packages/backend
+COPY --from=shared-builder /app/shared ./shared
+COPY backend ./backend
 COPY package.json ./
 COPY tsconfig.json ./
 RUN bun run build:backend
@@ -54,9 +54,9 @@ FROM base AS frontend-builder
 WORKDIR /app
 COPY package.json ./
 COPY tsconfig.json ./
-COPY packages/frontend ./packages/frontend
+COPY frontend ./frontend
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=shared-builder /app/packages/shared ./packages/shared
+COPY --from=shared-builder /app/shared ./shared
 RUN bun run build:frontend
 
 # ------------------------------------
@@ -71,12 +71,12 @@ RUN adduser --system --uid 1001 nextjs
 # Copy node_modules with rebuilt bcrypt
 COPY --from=deps /app/node_modules ./node_modules
 
-COPY --from=frontend-builder --chown=nextjs:nodejs /app/packages/frontend/.next/standalone ./
-COPY --from=frontend-builder --chown=nextjs:nodejs /app/packages/frontend/.next/static ./.next/static
-COPY --from=frontend-builder --chown=nextjs:nodejs /app/packages/frontend/public ./public
+COPY --from=frontend-builder --chown=nextjs:nodejs /app/frontend/.next/standalone ./
+COPY --from=frontend-builder --chown=nextjs:nodejs /app/frontend/.next/static ./.next/static
+COPY --from=frontend-builder --chown=nextjs:nodejs /app/frontend/public ./public
 
 # Backend
-COPY --from=backend-builder --chown=nextjs:nodejs /app/packages/backend/dist/server ./dist/server
+COPY --from=backend-builder --chown=nextjs:nodejs /app/backend/dist/server ./dist/server
 
 USER nextjs
 

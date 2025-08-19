@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "backend",
+    "shared",
+    "frontend"
   ],
   "scripts": {
     "build": "bun run build:shared && bun run build:backend && bun run build:frontend",

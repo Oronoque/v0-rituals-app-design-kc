@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { StepCompletionForm } from "../components/step-completion-form";
+import { DatePicker } from "../components/ui/floating-date-picker";
 
 interface HomeScreenProps {
   onNavigate: (screen: string) => void;
@@ -38,7 +39,9 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
 
   // Get today's date in YYYY-MM-DD format
   const today = new Date().toISOString().split("T")[0];
-  const dateString = new Date().toLocaleDateString("en-US", {
+  const [selectedDate, setSelectedDate] = useState(today);
+
+  const dateString = new Date(selectedDate).toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -46,7 +49,12 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
 
   // Fetch user and daily schedule
   const { data: user } = useCurrentUser();
-  const { data: schedule, isLoading, error, refetch } = useDailySchedule(today);
+  const {
+    data: schedule,
+    isLoading,
+    error,
+    refetch,
+  } = useDailySchedule(selectedDate);
   const completeRitualMutation = useCompleteRitual();
   const deleteRitualMutation = useDeleteRitual();
 
@@ -106,7 +114,9 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-[#3C3C3E]/30 flex-shrink-0">
         <div className="flex-1">
-          <h1 className="text-white font-medium text-lg">Today</h1>
+          <h1 className="text-white font-medium text-lg">
+            {selectedDate === today ? "Today" : "Schedule"}
+          </h1>
           <p className="text-[#AEAEB2] text-sm">{dateString}</p>
         </div>
         <div className="flex items-center space-x-3">
@@ -139,6 +149,9 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           </Button>
         </div>
       </div>
+
+      {/* Date Picker */}
+      <DatePicker selectedDate={selectedDate} onDateChange={setSelectedDate} />
 
       <div className="flex-1 overflow-y-auto p-4">
         {/* User Progress Summary */}

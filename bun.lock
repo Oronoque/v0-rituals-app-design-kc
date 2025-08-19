@@ -14,7 +14,7 @@
         "typescript": "^5",
       },
     },
-    "packages/backend": {
+    "backend": {
       "name": "@rituals/backend",
       "version": "1.0.0",
       "dependencies": {
@@ -54,7 +54,7 @@
         "typescript": "^5",
       },
     },
-    "packages/frontend": {
+    "frontend": {
       "name": "@rituals/frontend",
       "version": "0.1.0",
       "dependencies": {
@@ -123,7 +123,7 @@
         "typescript": "^5",
       },
     },
-    "packages/shared": {
+    "shared": {
       "name": "@rituals/shared",
       "version": "0.1.0",
       "dependencies": {
@@ -350,11 +350,11 @@
 
     "@radix-ui/rect": ["@radix-ui/rect@1.1.0", "", {}, "sha512-A9+lCBZoaMJlVKcRBz2YByCG+Cp2t6nAnMnNba+XiWxnj6r4JUFqfsgwocMBZU9LPtdxC6wB56ySYpc7LQIoJg=="],
 
-    "@rituals/backend": ["@rituals/backend@workspace:packages/backend"],
+    "@rituals/backend": ["@rituals/backend@workspace:backend"],
 
-    "@rituals/frontend": ["@rituals/frontend@workspace:packages/frontend"],
+    "@rituals/frontend": ["@rituals/frontend@workspace:frontend"],
 
-    "@rituals/shared": ["@rituals/shared@workspace:packages/shared"],
+    "@rituals/shared": ["@rituals/shared@workspace:shared"],
 
     "@rollup/rollup-linux-x64-gnu": ["@rollup/rollup-linux-x64-gnu@4.45.3", "", { "os": "linux", "cpu": "x64" }, "sha512-SUDXU5YabLAMl86FpupSQQEWzVG8X0HM+Q/famnJusbPiUgQnTGuSxtxg4UAYgv1ZmRV1nioYYXsgtSokU/7+Q=="],
 
