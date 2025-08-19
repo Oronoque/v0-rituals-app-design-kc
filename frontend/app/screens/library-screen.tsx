@@ -1,5 +1,6 @@
 "use client";
 import { CreateRitualFormV2 } from "@/app/components/create-ritual-form-v2";
+import { RitualDetailBottomSheet } from "@/app/components/ritual-detail-bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,16 +11,9 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { FullRitual, RitualCategory } from "@rituals/shared";
-import {
-  Clock,
-  Filter,
-  Lock,
-  LockOpen,
-  Plus,
-  Search,
-  Users,
-} from "lucide-react";
+import { Filter, Plus, Search, Users } from "lucide-react";
 import { useState } from "react";
+import { RitualCard } from "../components/ritual-card";
 
 interface LibraryScreenProps {
   onNavigate?: (screen: string) => void;
@@ -37,93 +31,6 @@ const categories: { id: RitualCategory | "all"; name: string }[] = [
   { id: "other", name: "Other" },
 ];
 
-interface RitualCardProps {
-  ritual: FullRitual;
-  isMyRitual?: boolean;
-  onFork?: (id: string) => void;
-  isPublicRituals?: boolean;
-  isForking?: boolean;
-}
-
-function RitualCard({
-  ritual,
-  onFork,
-  isMyRitual,
-  isPublicRituals,
-  isForking = false,
-}: RitualCardProps) {
-  return (
-    <div className="bg-[#2C2C2E] rounded-2xl p-4 space-y-3 border border-[#3C3C3E]/30 backdrop-blur-sm">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-semibold text-white text-base truncate">
-              {ritual.name}
-            </h3>
-          </div>
-          <p className="text-[#8E8E93] text-xs">
-            by {ritual.user_id.slice(0, 8)}
-          </p>
-        </div>
-        {!isMyRitual && (
-          <Button
-            size="sm"
-            className="rounded-full w-8 h-8 p-0 bg-blue-500 hover:bg-blue-600 flex-shrink-0 ml-2 shadow-lg shadow-blue-500/25"
-            onClick={() => onFork?.(ritual.id)}
-            disabled={isForking}
-          >
-            {isForking ? (
-              <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Plus className="w-4 h-4" />
-            )}
-          </Button>
-        )}
-        {isPublicRituals ? (
-          <LockOpen className="w-4 h-4 text-[#8E8E93]" />
-        ) : (
-          <Lock className="w-4 h-4 text-[#8E8E93]" />
-        )}
-      </div>
-
-      {/* Description */}
-      {ritual.description && (
-        <p className="text-[#8E8E93] text-xs leading-relaxed line-clamp-2">
-          {ritual.description}
-        </p>
-      )}
-
-      {/* Stats */}
-      <div className="flex items-center gap-3 text-[#8E8E93] text-xs">
-        <div className="flex items-center gap-1">
-          <Users className="w-3 h-3" />
-          <span>{ritual.fork_count}</span>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          <span>{ritual.step_definitions?.length || 0} steps</span>
-        </div>
-      </div>
-
-      {/* Tags */}
-      <div className="flex flex-wrap gap-1.5">
-        {ritual.category && (
-          <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full text-xs font-medium">
-            {ritual.category}
-          </span>
-        )}
-        {ritual.location && (
-          <span className="bg-[#3C3C3E] text-[#8E8E93] px-2 py-0.5 rounded-full text-xs">
-            {ritual.location}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export function LibraryScreen({ onCreateRitual }: LibraryScreenProps) {
   const [activeTab, setActiveTab] = useState<"publicRituals" | "userRituals">(
     "publicRituals"
@@ -131,6 +38,8 @@ export function LibraryScreen({ onCreateRitual }: LibraryScreenProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedRitual, setSelectedRitual] = useState<FullRitual | null>(null);
+  const [showDetailSheet, setShowDetailSheet] = useState(false);
 
   const { isAuthenticated, user } = useAuth();
   const forkRitualMutation = useForkRitual();
@@ -160,6 +69,16 @@ export function LibraryScreen({ onCreateRitual }: LibraryScreenProps) {
   const handleCreateClick = () => {
     setShowCreateForm(true);
     onCreateRitual?.();
+  };
+
+  const handleRitualClick = (ritual: FullRitual) => {
+    setSelectedRitual(ritual);
+    setShowDetailSheet(true);
+  };
+
+  const handleCloseDetailSheet = () => {
+    setShowDetailSheet(false);
+    setSelectedRitual(null);
   };
 
   const currentData =
@@ -290,6 +209,7 @@ export function LibraryScreen({ onCreateRitual }: LibraryScreenProps) {
                   ritual={ritual}
                   isMyRitual={ritual.user_id === user?.id}
                   onFork={handleFork}
+                  onRitualClick={handleRitualClick}
                   isPublicRituals={ritual.is_public}
                   isForking={forkRitualMutation.isPending}
                 />
@@ -330,6 +250,15 @@ export function LibraryScreen({ onCreateRitual }: LibraryScreenProps) {
           <div className="h-4"></div>
         </div>
       </div>
+
+      {/* Ritual Detail Bottom Sheet */}
+      <RitualDetailBottomSheet
+        ritual={selectedRitual}
+        isOpen={showDetailSheet}
+        onClose={handleCloseDetailSheet}
+        onForkRitual={handleFork}
+        isMyRitual={selectedRitual?.user_id === user?.id}
+      />
     </div>
   );
 }

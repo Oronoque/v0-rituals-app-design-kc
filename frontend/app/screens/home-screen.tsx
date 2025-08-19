@@ -1,12 +1,7 @@
 "use client";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  useCompleteRitual,
-  useDailySchedule,
-  useDeleteRitual,
-} from "@/hooks/use-api";
+import { useCompleteRitual, useDailySchedule } from "@/hooks/use-api";
 import { useCurrentUser } from "@/hooks/use-auth";
 import {
   CompleteRitualSchemaType,
@@ -18,14 +13,12 @@ import {
   CheckCircle,
   ChevronRight,
   Circle,
-  Clock,
-  Edit,
-  Play,
   Plus,
   Settings,
-  Trash2,
 } from "lucide-react";
 import { useState } from "react";
+import { RitualCard } from "../components/ritual-card";
+import { RitualDetailBottomSheet } from "../components/ritual-detail-bottom-sheet";
 import { StepCompletionForm } from "../components/step-completion-form";
 import { DatePicker } from "../components/ui/floating-date-picker";
 
@@ -36,6 +29,7 @@ interface HomeScreenProps {
 export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [selectedRitual, setSelectedRitual] = useState<FullRitual | null>(null);
   const [showCompletionForm, setShowCompletionForm] = useState(false);
+  const [showDetailSheet, setShowDetailSheet] = useState(false);
 
   // Get today's date in YYYY-MM-DD format
   const today = new Date().toISOString().split("T")[0];
@@ -56,7 +50,6 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     refetch,
   } = useDailySchedule(selectedDate);
   const completeRitualMutation = useCompleteRitual();
-  const deleteRitualMutation = useDeleteRitual();
 
   const scheduledRituals = schedule?.scheduled_rituals || [];
   const completedRituals = schedule?.completed_rituals || [];
@@ -66,6 +59,17 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const handleStartRitual = (ritual: FullRitual) => {
     setSelectedRitual(ritual);
     setShowCompletionForm(true);
+    setShowDetailSheet(false);
+  };
+
+  const handleViewRitualDetails = (ritual: FullRitual) => {
+    setSelectedRitual(ritual);
+    setShowDetailSheet(true);
+  };
+
+  const handleCloseDetailSheet = () => {
+    setShowDetailSheet(false);
+    setSelectedRitual(null);
   };
 
   const handleCompleteRitual = async (
@@ -83,15 +87,6 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
       refetch();
     } catch (error) {
       console.error("Failed to complete ritual:", error);
-    }
-  };
-
-  const handleDeleteRitual = async (ritualId: string) => {
-    try {
-      await deleteRitualMutation.mutateAsync(ritualId);
-      refetch();
-    } catch (error) {
-      console.error("Failed to delete ritual:", error);
     }
   };
 
@@ -290,13 +285,13 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                     </h2>
                     <div className="space-y-3">
                       {scheduledRituals.map((ritual) => (
-                        <RitualScheduleCard
+                        <RitualCard
                           key={ritual.id}
                           ritual={ritual}
-                          isCompleted={false}
-                          onStart={() => handleStartRitual(ritual)}
-                          onEdit={() => onNavigate(`edit-${ritual.id}`)}
-                          onDelete={() => handleDeleteRitual(ritual.id)}
+                          isMyRitual={true}
+                          onRitualClick={() => handleViewRitualDetails(ritual)}
+                          onStartRitual={() => handleStartRitual(ritual)}
+                          showStartButton={true}
                         />
                       ))}
                     </div>
@@ -355,90 +350,17 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             </Button>
           </div>
         </div>
+
+        {/* Ritual Detail Bottom Sheet */}
+        <RitualDetailBottomSheet
+          ritual={selectedRitual}
+          isOpen={showDetailSheet}
+          onClose={handleCloseDetailSheet}
+          onStartRitual={handleStartRitual}
+          isMyRitual={true}
+        />
       </div>
     </div>
-  );
-}
-
-// Ritual Schedule Card Component
-function RitualScheduleCard({
-  ritual,
-  isCompleted,
-  onStart,
-  onEdit,
-  onDelete,
-}: {
-  ritual: FullRitual;
-  isCompleted: boolean;
-  onStart: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <Card className="bg-gray-800/50 border-gray-700">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h3 className="text-white font-medium text-base mb-1">
-              {ritual.name}
-            </h3>
-            {ritual.description && (
-              <p className="text-gray-400 text-sm mb-2">{ritual.description}</p>
-            )}
-            <div className="flex items-center space-x-3 text-sm text-gray-400">
-              <Badge variant="secondary" className="text-xs">
-                {ritual.category}
-              </Badge>
-              <span className="flex items-center">
-                <Clock className="w-3 h-3 mr-1" />
-                {ritual.step_definitions.length} steps
-              </span>
-              {ritual.location && <span>{ritual.location}</span>}
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-2 ml-4">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onEdit}
-              className="text-gray-400 hover:text-white p-1"
-            >
-              <Edit className="w-4 h-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onDelete}
-              className="text-gray-400 hover:text-red-400 p-1"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Frequency Info */}
-        <div className="text-xs text-gray-500 mb-3">
-          {ritual.frequency.frequency_type === "daily" && "Daily ritual"}
-          {ritual.frequency.frequency_type === "weekly" &&
-            `Weekly on ${ritual.frequency.days_of_week
-              ?.map((d) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d])
-              .join(", ")}`}
-          {ritual.frequency.frequency_type === "custom" && "Custom schedule"}
-        </div>
-
-        {/* Start Button */}
-        <Button
-          onClick={onStart}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-          disabled={isCompleted}
-        >
-          <Play className="w-4 h-4 mr-2" />
-          {isCompleted ? "Completed" : "Start Ritual"}
-        </Button>
-      </CardContent>
-    </Card>
   );
 }
 
