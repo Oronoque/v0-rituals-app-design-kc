@@ -1,6 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { FullRitual } from "@rituals/shared";
-import { Clock, Lock, LockOpen, MapPin, Play, Plus, Users } from "lucide-react";
+import {
+  AlertCircle,
+  Calendar,
+  Clock,
+  Lock,
+  LockOpen,
+  MapPin,
+  Play,
+  Plus,
+  Users,
+} from "lucide-react";
+
+type RitualStatus = "available" | "missed" | "future";
 
 interface RitualCardProps {
   ritual: FullRitual;
@@ -11,6 +23,7 @@ interface RitualCardProps {
   isPublicRituals?: boolean;
   isForking?: boolean;
   showStartButton?: boolean;
+  status?: RitualStatus;
 }
 
 export function RitualCard({
@@ -22,10 +35,43 @@ export function RitualCard({
   isPublicRituals,
   isForking = false,
   showStartButton = false,
+  status = "available",
 }: RitualCardProps) {
+  const getStatusInfo = () => {
+    switch (status) {
+      case "missed":
+        return {
+          bgClass: "bg-red-500/10 border-red-500/30",
+          textClass: "text-red-400",
+          icon: <AlertCircle className="w-4 h-4" />,
+          label: "Missed",
+          disabled: true,
+        };
+      case "future":
+        return {
+          bgClass: "bg-gray-500/10 border-gray-500/30",
+          textClass: "text-gray-400",
+          icon: <Calendar className="w-4 h-4" />,
+          label: "Scheduled",
+          disabled: true,
+        };
+      default:
+        return {
+          bgClass: "bg-[#2C2C2E] border-[#3C3C3E]/30",
+          textClass: "",
+          icon: null,
+          label: "",
+          disabled: false,
+        };
+    }
+  };
+
+  const statusInfo = getStatusInfo();
   return (
     <div
-      className="bg-[#2C2C2E] rounded-2xl p-4 space-y-3 border border-[#3C3C3E]/30 backdrop-blur-sm cursor-pointer hover:bg-[#3C3C3E]/30 transition-colors"
+      className={`${statusInfo.bgClass} rounded-2xl p-4 space-y-3 backdrop-blur-sm cursor-pointer hover:bg-[#3C3C3E]/30 transition-colors ${
+        statusInfo.disabled ? "opacity-75" : ""
+      }`}
       onClick={() => onRitualClick?.(ritual)}
     >
       {/* Header */}
@@ -35,6 +81,14 @@ export function RitualCard({
             <h3 className="font-semibold text-white text-base truncate">
               {ritual.name}
             </h3>
+            {statusInfo.label && (
+              <div
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.textClass} ${statusInfo.bgClass}`}
+              >
+                {statusInfo.icon}
+                {statusInfo.label}
+              </div>
+            )}
           </div>
           <p className="text-[#8E8E93] text-xs">
             by {ritual.user_id.slice(0, 8)}
@@ -113,12 +167,23 @@ export function RitualCard({
         <Button
           onClick={(e) => {
             e.stopPropagation();
-            onStartRitual?.(ritual);
+            if (!statusInfo.disabled) {
+              onStartRitual?.(ritual);
+            }
           }}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-4"
+          disabled={statusInfo.disabled}
+          className={`w-full mt-4 ${
+            statusInfo.disabled
+              ? "bg-gray-600 text-gray-300 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700 text-white"
+          }`}
         >
           <Play className="w-4 h-4 mr-2" />
-          Start Ritual
+          {status === "missed"
+            ? "Missed"
+            : status === "future"
+              ? "Scheduled"
+              : "Start Ritual"}
         </Button>
       )}
     </div>

@@ -1,13 +1,9 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useCompleteRitual, useDailySchedule } from "@/hooks/use-api";
+import { useDailySchedule } from "@/hooks/use-api";
 import { useCurrentUser } from "@/hooks/use-auth";
-import {
-  CompleteRitualSchemaType,
-  FullRitual,
-  FullRitualCompletion,
-} from "@rituals/shared";
+import { FullRitual, FullRitualCompletion } from "@rituals/shared";
 import {
   Calendar,
   CheckCircle,
@@ -18,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { RitualCard } from "../components/ritual-card";
+import { RitualCompletionDetailSheet } from "../components/ritual-completion-detail-sheet";
 import { RitualDetailBottomSheet } from "../components/ritual-detail-bottom-sheet";
 import { StepCompletionForm } from "../components/step-completion-form";
 import { DatePicker } from "../components/ui/floating-date-picker";
@@ -28,12 +25,25 @@ interface HomeScreenProps {
 
 export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [selectedRitual, setSelectedRitual] = useState<FullRitual | null>(null);
+  const [selectedCompletion, setSelectedCompletion] =
+    useState<FullRitualCompletion | null>(null);
   const [showCompletionForm, setShowCompletionForm] = useState(false);
   const [showDetailSheet, setShowDetailSheet] = useState(false);
+  const [showCompletionDetailSheet, setShowCompletionDetailSheet] =
+    useState(false);
 
   // Get today's date in YYYY-MM-DD format
   const today = new Date().toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState(today);
+
+  // Helper function to determine ritual status based on selected date
+  const getRitualStatus = () => {
+    if (selectedDate < today) return "missed";
+    if (selectedDate > today) return "future";
+    return "available";
+  };
+
+  const ritualStatus = getRitualStatus();
 
   const dateString = new Date(selectedDate).toLocaleDateString("en-US", {
     weekday: "long",
@@ -49,7 +59,6 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     error,
     refetch,
   } = useDailySchedule(selectedDate);
-  const completeRitualMutation = useCompleteRitual();
 
   const scheduledRituals = schedule?.scheduled_rituals || [];
   const completedRituals = schedule?.completed_rituals || [];
@@ -72,22 +81,20 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     setSelectedRitual(null);
   };
 
-  const handleCompleteRitual = async (
-    completionData: Omit<CompleteRitualSchemaType, "ritual_id">
-  ) => {
-    if (!selectedRitual) return;
+  const handleViewCompletionDetails = (completion: FullRitualCompletion) => {
+    setSelectedCompletion(completion);
+    setShowCompletionDetailSheet(true);
+  };
 
-    try {
-      await completeRitualMutation.mutateAsync({
-        id: selectedRitual.id,
-        completion: completionData,
-      });
-      setShowCompletionForm(false);
-      setSelectedRitual(null);
-      refetch();
-    } catch (error) {
-      console.error("Failed to complete ritual:", error);
-    }
+  const handleCloseCompletionDetailSheet = () => {
+    setShowCompletionDetailSheet(false);
+    setSelectedCompletion(null);
+  };
+
+  const handleCompleteRitual = () => {
+    setShowCompletionForm(false);
+    setSelectedRitual(null);
+    refetch();
   };
 
   if (showCompletionForm && selectedRitual) {
@@ -99,7 +106,6 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           setShowCompletionForm(false);
           setSelectedRitual(null);
         }}
-        isLoading={completeRitualMutation.isPending}
       />
     );
   }
@@ -280,8 +286,18 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                 {scheduledRituals.length > 0 && (
                   <div>
                     <h2 className="text-white font-semibold text-lg mb-4 flex items-center">
-                      <Circle className="w-5 h-5 mr-2 text-blue-400" />
-                      Scheduled Rituals
+                      {ritualStatus === "missed" ? (
+                        <Circle className="w-5 h-5 mr-2 text-red-400" />
+                      ) : ritualStatus === "future" ? (
+                        <Circle className="w-5 h-5 mr-2 text-gray-400" />
+                      ) : (
+                        <Circle className="w-5 h-5 mr-2 text-blue-400" />
+                      )}
+                      {ritualStatus === "missed"
+                        ? "Missed Rituals"
+                        : ritualStatus === "future"
+                          ? "Scheduled Rituals"
+                          : "Scheduled Rituals"}
                     </h2>
                     <div className="space-y-3">
                       {scheduledRituals.map((ritual) => (
@@ -292,6 +308,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                           onRitualClick={() => handleViewRitualDetails(ritual)}
                           onStartRitual={() => handleStartRitual(ritual)}
                           showStartButton={true}
+                          status={ritualStatus}
                         />
                       ))}
                     </div>
@@ -311,7 +328,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                           key={completion.id}
                           completion={completion}
                           onViewDetails={() =>
-                            onNavigate(`completion-${completion.id}`)
+                            handleViewCompletionDetails(completion)
                           }
                         />
                       ))}
@@ -358,6 +375,13 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           onClose={handleCloseDetailSheet}
           onStartRitual={handleStartRitual}
           isMyRitual={true}
+        />
+
+        {/* Ritual Completion Detail Bottom Sheet */}
+        <RitualCompletionDetailSheet
+          completion={selectedCompletion}
+          isOpen={showCompletionDetailSheet}
+          onClose={handleCloseCompletionDetailSheet}
         />
       </div>
     </div>
